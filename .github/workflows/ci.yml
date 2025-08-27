@@ -19,7 +19,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]        # add windows-latest if you want
-        dotnet: ["9.0.x", "8.0.x"] # tests use .NET 8 reference assemblies; keep both SDKs handy
+        dotnet: ["9.0.x"] 
 
     env:
       DOTNET_NOLOGO: true
