@@ -6,6 +6,8 @@ using System;
 using System.Collections.Immutable;
 using System.Linq;
 
+using MiniAnalyzers.Roslyn.Infrastructure;
+
 /// <summary>
 /// Flags short or non-descriptive names across multiple declaration contexts.
 /// Targets:
@@ -232,6 +234,10 @@ public sealed class WeakVariableNameAnalyzer : DiagnosticAnalyzer
 
     private static void AnalyzeSingleDesignation(SyntaxNodeAnalysisContext context, KnownTypes known)
     {
+        var opts = context.GetWeakVarOptions();
+        if (!opts.CheckForeach)
+            return; // skip all foreach variable diagnostics if disabled
+
         var single = (SingleVariableDesignationSyntax)context.Node;
         var sym = context.SemanticModel.GetDeclaredSymbol(single, context.CancellationToken) as ILocalSymbol;
         if (TryCreateCandidate(sym, single.Identifier, out var cand))
@@ -242,7 +248,9 @@ public sealed class WeakVariableNameAnalyzer : DiagnosticAnalyzer
     // This keeps all contexts consistent and maintains a single place to adjust behavior.
     private static void EvaluateAndReportIfWeak(SyntaxNodeAnalysisContext context, NameCandidate cand, KnownTypes known)
     {
-        if (!ShouldFlagName(cand.Name))
+        var opts = context.GetWeakVarOptions();
+
+        if (!ShouldFlagName(cand.Name, opts))
             return;
 
         var suffix = BuildSuggestionSuffix(cand.Type, cand.Name, known);
@@ -251,7 +259,9 @@ public sealed class WeakVariableNameAnalyzer : DiagnosticAnalyzer
 
     private static void EvaluateAndReportIfWeak(SymbolAnalysisContext context, NameCandidate cand, KnownTypes known)
     {
-        if (!ShouldFlagName(cand.Name))
+        var opts = context.GetWeakVarOptions();
+
+        if (!ShouldFlagName(cand.Name, opts))
             return;
 
         var suffix = BuildSuggestionSuffix(cand.Type, cand.Name, known);
@@ -261,18 +271,24 @@ public sealed class WeakVariableNameAnalyzer : DiagnosticAnalyzer
     // Decide whether a raw identifier is weak by length or token membership.
     // For the length rule we ignore exactly one leading underscore.
     // AllowedShortNames is checked on the final identifier we accept as "the name we want".
-    private static bool ShouldFlagName(string name)
+    private static bool ShouldFlagName(string name, WeakVarOptions opts)
     {
         var trimmed = name.Length > 0 && name[0] == '_' ? name.Substring(1) : name;
 
-        // Check allow-list against both original and trimmed forms.
+        // 1) .editorconfig allow-list (additive to built-ins)
+        if (opts.Allowed.Contains(name) || opts.Allowed.Contains(trimmed))
+            return false;
+
+        // 2) built-in allow-list (id/ct/ok/...)
         if (AllowedShortNames.Contains(name) || AllowedShortNames.Contains(trimmed))
             return false;
 
-        if (trimmed.Length <= 2)
+        // 3) length rule
+        if (trimmed.Length < opts.MinLength)
             return true;
 
-        if (WeakNames.Contains(name))
+        // 4) token rule (built-in weak + .editorconfig weak)
+        if (WeakNames.Contains(name) || opts.Weak.Contains(name))
             return true;
 
         return false;

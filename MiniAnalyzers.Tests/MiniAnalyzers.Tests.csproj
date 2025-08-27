@@ -10,6 +10,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="WeakVariableNameConfig\**" />
+    <EmbeddedResource Remove="WeakVariableNameConfig\**" />
+    <None Remove="WeakVariableNameConfig\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.4">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -24,4 +30,10 @@
     <ProjectReference Include="..\MiniAnalyzers.Roslyn\MiniAnalyzers.Roslyn.csproj" />
   </ItemGroup>
 
+
+<ItemGroup>
+	<None Include="EditorConfig\WeakVar\.editorconfig">
+		<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	</None>
+</ItemGroup>
 </Project>
