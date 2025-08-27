@@ -2,26 +2,28 @@
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
-using System;
-
-namespace MiniAnalyzers.Roslyn.Analyzers;
+using System.Threading;
 
 /// <summary>
-/// Flags local variables that have weak, very short, or non-descriptive names
-/// (e.g., <c>a</c>, <c>b1</c>, <c>tmp</c>).
+/// Flags short or non-descriptive names across multiple declaration contexts.
+/// Targets:
+/// - Local variables (including deconstruction and pattern variables)
+/// - Fields (non-const)
+/// - Parameters
 ///
-/// Scope (first iteration):
-/// - Only local variable declarations (not fields, parameters, or deconstruction).
-/// - Skips typical for-loop counters 'i', 'j', 'k' when declared in the loop initializer.
-/// - Keeps rules simple: names with length ≤ 2 or exactly "tmp".
-/// 
-/// Follow-ups planned:
-/// - Consider "obj", "val", "data", "flag", etc.
-/// - Consider type-aware hints (bool → "isX"/"hasX", collections → plural).
-/// - Handle deconstruction and pattern variables.
+/// Rules:
+/// - Length rule: names of length ≤ 2 are flagged, except allow-list entries
+/// - Token rule: names in a small weak-name set (e.g., "tmp", "data", "foo") are flagged
+/// - For-loop counters: 'i', 'j', 'k' are allowed in the for-initializer only
+/// - Discard identifier "_" is ignored
+///
+/// Diagnostic text is enriched with type-aware suggestions:
+/// - For bool types: suggest 'is/has/can' prefix
+/// - For arrays and IEnumerable&lt;T&gt;: suggest plural naming
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class WeakVariableNameAnalyzer : DiagnosticAnalyzer
@@ -34,33 +36,34 @@ public sealed class WeakVariableNameAnalyzer : DiagnosticAnalyzer
     private const string Category = "Naming";
 
     private static readonly LocalizableString Title =
-        "Use descriptive variable names";
+        "Use descriptive names";
 
     // {1} is either empty or begins with a leading space like "
     //  and since it is a boolean, prefer an 'is/has/can' prefix"
     private static readonly LocalizableString MessageFormat =
-        "Local variable '{0}' has a short or non-descriptive name{1}";
+        "Name '{0}' is short or non-descriptive{1}";
 
     private static readonly LocalizableString Description =
         "Very short or generic variable names hurt readability. Prefer a descriptive name " +
         "that reflects the variable's purpose (e.g., 'count', 'isReady', 'customerList').";
 
-    // Very small, conservative list to start with.
-    private static readonly HashSet<string> WeakNames =
-        new(StringComparer.OrdinalIgnoreCase) { "tmp", "temp", "obj", "val", "data", "foo", "bar", "baz", "qux", "item", "elem", "thing", "stuff" };
+    // Names that are commonly placeholders or too generic for locals.
+    // Case-insensitive to avoid accidental casing escapes (TMP, Tmp, etc.).
+    private static readonly ImmutableHashSet<string> WeakNames =
+     ImmutableHashSet.Create(StringComparer.OrdinalIgnoreCase,
+         "tmp", "temp", "obj", "val", "data", "foo", "bar", "baz", "qux", "item", "elem", "thing", "stuff");
 
-    // Short names that are widely accepted in locals and should not be flagged.
-    private static readonly HashSet<string> AllowedShortNames =
-        new(StringComparer.Ordinal)
-        {
-        "id",    // common abbreviation for identifier
-        "ct",    // CancellationToken
-        "ok",    // common flag result
-        "db",    // database
-        "ip",    // internet protocol
-        "ui",    // user interface
-        "os"     // operating system
-        };
+    // Short names that are widely accepted in code-bases and should not be flagged by the length rule.
+    // Case-sensitive on purpose to keep naming style consistent.
+    private static readonly ImmutableHashSet<string> AllowedShortNames =
+        ImmutableHashSet.Create(StringComparer.Ordinal,
+            "id", "ct", "ok", "db", "ip", "ui", "os");
+    // A single site to carry the analyzed name, its type (if any), and the precise location to report.
+    private readonly record struct NameCandidate(string Name, ITypeSymbol? Type, Location Location);
+    // Compilation-scoped cache of well-known framework symbols needed by suggestions.
+    private readonly record struct KnownTypes(
+        INamedTypeSymbol? IEnumerableT,
+        INamedTypeSymbol? EventArgs);
 
     private static readonly DiagnosticDescriptor Rule = new DiagnosticDescriptor(
         id: DiagnosticId,
@@ -71,27 +74,34 @@ public sealed class WeakVariableNameAnalyzer : DiagnosticAnalyzer
         isEnabledByDefault: true,
         description: Description);
 
+    /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         ImmutableArray.Create(Rule);
 
+    /// <summary>
+    /// Register once per-compilation, cache framework symbols, and pass them to all callbacks.
+    /// This avoids resolving well-known types on every variable we analyze.
+    /// </summary>
     public override void Initialize(AnalysisContext context)
     {
-        // Match previous analyzers:
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
 
-        // Start small: just variable declarators inside local declarations.
-        context.RegisterSyntaxNodeAction(AnalyzeVariableDeclarator, SyntaxKind.VariableDeclarator);
-
-        // Parameters: use a symbol action for direct access to IParameterSymbol.
-        context.RegisterSymbolAction(AnalyzeParameter, SymbolKind.Parameter);
-
-        // Pattern variables and deconstructions use variable designations.
-        context.RegisterSyntaxNodeAction(AnalyzeSingleDesignation, SyntaxKind.SingleVariableDesignation);
-        context.RegisterSyntaxNodeAction(AnalyzeParenthesizedDesignation, SyntaxKind.ParenthesizedVariableDesignation);
+        // Resolve once. Null means the symbol could not be found, in which case collection hints will be skipped.
+        context.RegisterCompilationStartAction(start =>
+        {
+            var known = new KnownTypes(
+                start.Compilation.GetTypeByMetadataName("System.Collections.Generic.IEnumerable`1"),
+                start.Compilation.GetTypeByMetadataName("System.EventArgs"));
+            // Wrap your existing registrations so each callback receives 'known'
+            start.RegisterSyntaxNodeAction(c => AnalyzeVariableDeclarator(c, known), SyntaxKind.VariableDeclarator);
+            start.RegisterSymbolAction(c => AnalyzeParameter(c, known), SymbolKind.Parameter);
+            start.RegisterSyntaxNodeAction(c => AnalyzeSingleDesignation(c, known), SyntaxKind.SingleVariableDesignation);
+        });
     }
-
-    private static void AnalyzeVariableDeclarator(SyntaxNodeAnalysisContext context)
+    // Dispatch variable declarators by context: locals vs fields.
+    // Keeps each handler small and focused.
+    private static void AnalyzeVariableDeclarator(SyntaxNodeAnalysisContext context, KnownTypes known)
     {
         var declarator = (VariableDeclaratorSyntax)context.Node;
         if (declarator.Parent is not VariableDeclarationSyntax varDecl)
@@ -99,70 +109,94 @@ public sealed class WeakVariableNameAnalyzer : DiagnosticAnalyzer
 
         var parent = varDecl.Parent;
 
-        // Locals: same as before
         if (parent is LocalDeclarationStatementSyntax)
         {
-            var name = declarator.Identifier.ValueText;
-            if (string.IsNullOrWhiteSpace(name) || name == "_")
-                return;
-
-            if (IsClassicForLoopCounter(declarator, name))
-                return;
-
-            var symbol = context.SemanticModel.GetDeclaredSymbol(declarator, context.CancellationToken) as ILocalSymbol;
-            if (symbol is null) return;
-
-            EvaluateAndReportIfWeak(context, name, symbol.Type, declarator.Identifier.GetLocation());
+            HandleLocalDeclarator(context, declarator, known);
             return;
         }
 
-        // Fields: now supported, but skip 'const' fields to reduce noise on e.g. "PI"
         if (parent is FieldDeclarationSyntax fieldDecl)
         {
-            // Skip constants
-            if (fieldDecl.Modifiers.Any(SyntaxKind.ConstKeyword))
-                return;
-
-            var name = declarator.Identifier.ValueText;
-            if (string.IsNullOrWhiteSpace(name) || name == "_")
-                return;
-
-            var symbol = context.SemanticModel.GetDeclaredSymbol(declarator, context.CancellationToken) as IFieldSymbol;
-            if (symbol is null) return;
-
-            EvaluateAndReportIfWeak(context, name, symbol.Type, declarator.Identifier.GetLocation());
+            HandleFieldDeclarator(context, declarator, fieldDecl, known);
+            return;
         }
     }
 
-    private static bool IsCollectionType(ITypeSymbol type)
+    // Local declarations: skip discards and classic for-counters, then analyze the declared symbol.
+    private static void HandleLocalDeclarator(
+    SyntaxNodeAnalysisContext context,
+    VariableDeclaratorSyntax declarator,
+    KnownTypes known)
     {
-        if (type is IArrayTypeSymbol)
-            return true;
+        var name = declarator.Identifier.ValueText;
+        if (string.IsNullOrWhiteSpace(name) || name == "_")
+            return;
 
-        // Use the interfaces already available on the type, and compare by metadata name.
-        return type.AllInterfaces.Any(i =>
-            i.SpecialType == SpecialType.System_Collections_IEnumerable ||
-            (i.OriginalDefinition is INamedTypeSymbol named &&
-             named.ConstructedFrom?.ToDisplayString() == "System.Collections.Generic.IEnumerable<T>"));
+        if (IsClassicForLoopCounter(declarator, name))
+            return;
+
+        var symbol = context.SemanticModel
+            .GetDeclaredSymbol(declarator, context.CancellationToken) as ILocalSymbol;
+        if (symbol is null)
+            return;
+
+        var candidate = new NameCandidate(name, symbol.Type, declarator.Identifier.GetLocation());
+        EvaluateAndReportIfWeak(context, candidate, known);
     }
 
+    // Field declarations: skip const fields to reduce noise on well-known constants, then analyze.
+    private static void HandleFieldDeclarator(
+        SyntaxNodeAnalysisContext context,
+        VariableDeclaratorSyntax declarator,
+        FieldDeclarationSyntax fieldDecl,
+        KnownTypes known)
+    {
+        if (fieldDecl.Modifiers.Any(SyntaxKind.ConstKeyword))
+            return;
 
-    private static string BuildSuggestionSuffix(ITypeSymbol? type, string name)
+        var name = declarator.Identifier.ValueText;
+        if (string.IsNullOrWhiteSpace(name) || name == "_")
+            return;
+
+        var symbol = context.SemanticModel
+            .GetDeclaredSymbol(declarator, context.CancellationToken) as IFieldSymbol;
+        if (symbol is null)
+            return;
+
+        var candidate = new NameCandidate(name, symbol.Type, declarator.Identifier.GetLocation());
+        EvaluateAndReportIfWeak(context, candidate, known);
+    }
+
+    // Treat arrays and any type implementing IEnumerable or IEnumerable<T> as collections.
+    // Uses the cached IEnumerable<T> symbol for a robust and fast check.
+    // Uses the cached IEnumerable<T> symbol for a robust and fast check.
+    private static bool IsCollectionType(ITypeSymbol type, INamedTypeSymbol? ienumerableT)
+    {
+        if (type is IArrayTypeSymbol) return true;
+        if (ienumerableT is null) return false;
+
+        foreach (var i in type.AllInterfaces)
+        {
+            if (SymbolEqualityComparer.Default.Equals(i.OriginalDefinition, ienumerableT))
+                return true;
+            if (i.SpecialType == SpecialType.System_Collections_IEnumerable)
+                return true;
+        }
+        return false;
+    }
+
+    // Produces a single-sentence suffix to append to the message.
+    // Keep the suffix fragment without a trailing period to preserve message style.
+    private static string BuildSuggestionSuffix(ITypeSymbol? type, string name, KnownTypes known)
     {
         if (type is null)
             return string.Empty;
 
         if (type.SpecialType == SpecialType.System_Boolean)
-        {
-            // Keep it a single sentence; no trailing period.
             return " and since it is a boolean, prefer an 'is/has/can' prefix";
-        }
 
-        if (IsCollectionType(type))
-        {
-            // Do not attempt pluralization; just nudge.
+        if (IsCollectionType(type, known.IEnumerableT))
             return " and since it is a collection, consider a plural name";
-        }
 
         return string.Empty;
     }
@@ -186,91 +220,101 @@ public sealed class WeakVariableNameAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static void AnalyzeParameter(SymbolAnalysisContext context)
+    private static void AnalyzeParameter(SymbolAnalysisContext context, KnownTypes known)
     {
-        var parameter = (IParameterSymbol)context.Symbol;
-        var name = parameter.Name;
-        if (string.IsNullOrWhiteSpace(name) || name == "_")
+        var p = (IParameterSymbol)context.Symbol;
+
+        // Noise reduction: conventional 'e' for EventArgs-typed parameters
+        if (p.Name is "e" && DerivesFrom(p.Type, known.EventArgs))
             return;
 
-        // Typical framework and your allow-list still apply
-        EvaluateAndReportIfWeak(context, name, parameter.Type, parameter.Locations.FirstOrDefault());
+        if (TryCreateCandidate(p, out var cand))
+            EvaluateAndReportIfWeak(context, cand, known);
     }
 
-    private static void AnalyzeSingleDesignation(SyntaxNodeAnalysisContext context)
+    private static void AnalyzeSingleDesignation(SyntaxNodeAnalysisContext context, KnownTypes known)
     {
-        // Covers: if (x is int n), switch patterns, out var n, and deconstruct parts (x) inside (x, y).
         var single = (SingleVariableDesignationSyntax)context.Node;
-        var name = single.Identifier.ValueText;
-        if (string.IsNullOrWhiteSpace(name) || name == "_")
+        var sym = context.SemanticModel.GetDeclaredSymbol(single, context.CancellationToken) as ILocalSymbol;
+        if (TryCreateCandidate(sym, single.Identifier, out var cand))
+            EvaluateAndReportIfWeak(context, cand, known);
+    }
+
+    // Central evaluation: apply naming rules, build type-aware suffix, and report.
+    // This keeps all contexts consistent and maintains a single place to adjust behavior.
+    private static void EvaluateAndReportIfWeak(SyntaxNodeAnalysisContext context, NameCandidate cand, KnownTypes known)
+    {
+        if (!ShouldFlagName(cand.Name))
             return;
 
-        // Get the declared symbol for the designation
-        var symbol = context.SemanticModel.GetDeclaredSymbol(single, context.CancellationToken) as ILocalSymbol;
-        if (symbol is null) return;
-
-        EvaluateAndReportIfWeak(context, name, symbol.Type, single.Identifier.GetLocation());
+        var suffix = BuildSuggestionSuffix(cand.Type, cand.Name, known);
+        context.ReportDiagnostic(Diagnostic.Create(Rule, cand.Location, cand.Name, suffix));
     }
 
-    private static void AnalyzeParenthesizedDesignation(SyntaxNodeAnalysisContext context)
+    private static void EvaluateAndReportIfWeak(SymbolAnalysisContext context, NameCandidate cand, KnownTypes known)
     {
-        // Covers: var (x, y) = Get(), foreach (var (x, y) in ...)
-        var paren = (ParenthesizedVariableDesignationSyntax)context.Node;
-
-        foreach (var single in paren.Variables.OfType<SingleVariableDesignationSyntax>())
-        {
-            var name = single.Identifier.ValueText;
-            if (string.IsNullOrWhiteSpace(name) || name == "_")
-                continue;
-
-            var symbol = context.SemanticModel.GetDeclaredSymbol(single, context.CancellationToken) as ILocalSymbol;
-            if (symbol is null) continue;
-
-            EvaluateAndReportIfWeak(context, name, symbol.Type, single.Identifier.GetLocation());
-        }
-    }
-
-    private static void EvaluateAndReportIfWeak(
-    SyntaxNodeAnalysisContext context,
-    string name,
-    ITypeSymbol? type,
-    Location? location)
-    {
-        if (!ShouldFlagName(name))
+        if (!ShouldFlagName(cand.Name))
             return;
 
-        var suffix = BuildSuggestionSuffix(type, name);
-        if (location is null) return;
-
-        context.ReportDiagnostic(Diagnostic.Create(Rule, location, name, suffix));
+        var suffix = BuildSuggestionSuffix(cand.Type, cand.Name, known);
+        context.ReportDiagnostic(Diagnostic.Create(Rule, cand.Location, cand.Name, suffix));
     }
 
-    private static void EvaluateAndReportIfWeak(
-        SymbolAnalysisContext context,
-        string name,
-        ITypeSymbol? type,
-        Location? location)
-    {
-        if (!ShouldFlagName(name))
-            return;
-
-        var suffix = BuildSuggestionSuffix(type, name);
-        if (location is null) return;
-
-        context.ReportDiagnostic(Diagnostic.Create(Rule, location, name, suffix));
-    }
-
+    // Decide whether a raw identifier is weak by length or token membership.
+    // For the length rule we ignore exactly one leading underscore.
+    // AllowedShortNames is checked on the final identifier we accept as "the name we want".
     private static bool ShouldFlagName(string name)
     {
-        // leading/trailing whitespace is already filtered by callers
-        // Length rule (<= 2) with allow-list
-        if (name.Length <= 2 && !AllowedShortNames.Contains(name))
+        var trimmed = name.Length > 0 && name[0] == '_' ? name.Substring(1) : name;
+
+        // Check allow-list against both original and trimmed forms.
+        if (AllowedShortNames.Contains(name) || AllowedShortNames.Contains(trimmed))
+            return false;
+
+        if (trimmed.Length <= 2)
             return true;
 
-        // Token rule
         if (WeakNames.Contains(name))
             return true;
 
+        return false;
+    }
+    private static bool TryCreateCandidate(ILocalSymbol? symbol, SyntaxToken id, out NameCandidate candidate)
+    {
+        candidate = default;
+        if (symbol is null)
+            return false;
+
+        var name = id.ValueText;
+        if (string.IsNullOrWhiteSpace(name) || name == "_")
+            return false;
+
+        candidate = new NameCandidate(name, symbol.Type, id.GetLocation());
+        return true;
+    }
+
+    private static bool TryCreateCandidate(IParameterSymbol? symbol, out NameCandidate candidate)
+    {
+        candidate = default;
+        if (symbol is null) return false;
+        var name = symbol.Name;
+        if (string.IsNullOrWhiteSpace(name) || name == "_") return false;
+
+        var loc = symbol.Locations.FirstOrDefault();
+        if (loc is null) return false;
+
+        candidate = new NameCandidate(name, symbol.Type, loc);
+        return true;
+    }
+
+    private static bool DerivesFrom(ITypeSymbol? type, INamedTypeSymbol? baseType)
+    {
+        if (type is null || baseType is null) return false;
+        for (var t = type as INamedTypeSymbol; t is not null; t = t.BaseType)
+        {
+            if (SymbolEqualityComparer.Default.Equals(t, baseType))
+                return true;
+        }
         return false;
     }
 }
