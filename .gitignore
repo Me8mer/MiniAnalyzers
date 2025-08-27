@@ -52,3 +52,27 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# Roslyn analyzer test artifacts
+*.sarif
+
+# User settings / local configs
+*.user
+*.rsuser
+*.suo
+
+# Build artifacts
+TestResults/
+coverage*.xml
+*.coverage
+*.coveragexml
+
+# WPF generated files
+*.g.cs
+*.g.i.cs
+*.baml
+
+# Local tool settings
+*.DotSettings.user
+
+.vs/
