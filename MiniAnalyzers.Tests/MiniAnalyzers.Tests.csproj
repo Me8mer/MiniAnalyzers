@@ -20,6 +20,7 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Analyzer.Testing.MSTest" Version="1.1.2" />
 	  <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
 	  <PackageReference Include="MSTest.TestAdapter" Version="3.10.3" />
@@ -31,9 +32,9 @@
   </ItemGroup>
 
 
-<ItemGroup>
-	<None Include="EditorConfig\WeakVar\.editorconfig">
-		<CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	</None>
-</ItemGroup>
+  <ItemGroup>
+    <EditorConfigFiles Update="C:\School\Programko\MiniAnalyzers\MiniAnalyzers.Tests\.editorconfig">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </EditorConfigFiles>
+  </ItemGroup>
 </Project>
