@@ -12,172 +12,115 @@ using System.Threading.Tasks;
 
 namespace MiniAnalyzers.Core;
 
-public sealed class DiagnosticInfo
-{
-    public string Id { get; init; } = "";
-    public string Severity { get; init; } = "";
-    public string Message { get; init; } = "";
-    public string FilePath { get; init; } = "";
-    public int Line { get; init; }       // 1-based
-    public int Column { get; init; }     // 1-based
-    public string Analyzer { get; init; } = "";
-    public string ProjectName { get; init; } = "";
-
-    /// <summary>
-    /// Code excerpt around the diagnostic location, with the precise span marked using [| |].
-    /// Precomputed by the analysis step so UI stays simple.
-    /// </summary>
-    public string? ContextSnippet { get; set; }
-}
-
 public static class AnalysisRunner
 {
     /// <summary>
-    /// Opens a solution and runs the given analyzers over all compilations.
-    /// Returns a flat list of diagnostics that came from analyzers (compiler diagnostics are filtered out).
+    /// Opens a solution and executes the given analyzers for all C# projects.
+    /// Returns only analyzer diagnostics with source locations.
     /// </summary>
+    /// <param name="solutionPath">Absolute path to a .sln file.</param>
+    /// <param name="analyzers">Analyzers to run.</param>
+    /// <param name="cancellationToken">Cooperative cancellation token.</param>
+    /// <param name="contextLines">
+    /// Number of context lines to include above and below the primary diagnostic line.
+    /// Defaults to 2 (2 up, 2 down).
+    /// </param>
+    /// <returns>Flat list of diagnostics enriched with project and file info.</returns>
     public static async Task<IReadOnlyList<DiagnosticInfo>> AnalyzeSolutionAsync(
-        string solutionPath,
-        IEnumerable<DiagnosticAnalyzer> analyzers,
-        CancellationToken cancellationToken = default)
+         string solutionPath,
+         IEnumerable<DiagnosticAnalyzer> analyzers,
+         CancellationToken cancellationToken = default,
+          int contextLines = 2)
     {
         RegisterMSBuildIfNeeded();
 
         using var workspace = MSBuildWorkspace.Create();
-        var solution = await workspace.OpenSolutionAsync(
-            solutionPath,
-            progress: null,
-            cancellationToken: cancellationToken);
+        var solution = await workspace.OpenSolutionAsync(solutionPath, null, cancellationToken);
         var results = new List<DiagnosticInfo>();
 
-        foreach (var project in solution.Projects)
+        foreach (var project in solution.Projects.Where(p => p.Language == LanguageNames.CSharp))
         {
-            if (!project.Language.Equals(LanguageNames.CSharp, StringComparison.Ordinal))
-                continue;
-
             var compilation = await project.GetCompilationAsync(cancellationToken);
-            if (compilation is null)
-                continue;
+            if (compilation is null) continue;
 
             var withAnalyzers = compilation.WithAnalyzers(analyzers.ToImmutableArray(), project.AnalyzerOptions, cancellationToken);
             var diags = await withAnalyzers.GetAnalyzerDiagnosticsAsync(cancellationToken);
 
-            foreach (var d in diags.Where(d => d.Location.IsInSource))
+            foreach (var diagnostic in diags.Where(diag => diag.Location.IsInSource))
             {
-                var span = d.Location.GetLineSpan();
-                results.Add(new DiagnosticInfo
-                {
-                    Id = d.Id,
-                    Severity = d.Severity.ToString(),
-                    Message = d.GetMessage(),
-                    FilePath = span.Path,
-                    Line = span.StartLinePosition.Line + 1,
-                    Column = span.StartLinePosition.Character + 1,
-                    Analyzer = d.Descriptor.Title.ToString(),
-                    ProjectName = project.Name,
-                    ContextSnippet = BuildContextSnippet(d.Location, contextLines: 3, cancellationToken)
-                });
+                results.Add(ToDiagnosticInfo(diagnostic, project.Name, cancellationToken, contextLines));
             }
         }
-
         return results;
+
     }
 
     /// <summary>
-    /// Convenience for a single .csproj path when you do not have a .sln.
+    /// Maps a Roslyn <see cref="Microsoft.CodeAnalysis.Diagnostic"/> to a <see cref="DiagnosticInfo"/>.
+    /// Also builds a formatted code snippet for quick context preview.
     /// </summary>
+    /// <param name="d">Source based diagnostic.</param>
+    /// <param name="projectName">Owning project name.</param>
+    /// <param name="ct">Cooperative cancellation token.</param>
+    /// <returns>Populated <see cref="DiagnosticInfo"/> ready for UI binding.</returns>
+    private static DiagnosticInfo ToDiagnosticInfo(Diagnostic diagnostic, string projectName, CancellationToken ct, int contextLines)
+    {
+        var span = diagnostic.Location.GetLineSpan();
+        diagnostic.Properties.TryGetValue("Suggestion", out var suggestion);
+        return new DiagnosticInfo
+        {
+            Id = diagnostic.Id,
+            Severity = diagnostic.Severity.ToString(),
+            Message = diagnostic.GetMessage(),
+            FilePath = span.Path,
+            Line = span.StartLinePosition.Line + 1,
+            Column = span.StartLinePosition.Character + 1,
+            Analyzer = diagnostic.Descriptor.Title.ToString(),
+            ProjectName = projectName,
+            ContextSnippet = ContextSnippetBuilder.Build(diagnostic.Location, ct, contextLines),
+            Suggestion = suggestion
+        };
+    }
+
+    /// <summary>
+    /// Opens a single CSharp project and executes the given analyzers.
+    /// Returns only analyzer diagnostics with source locations.
+    /// </summary>
+    /// <param name="projectPath">Absolute path to a .csproj file.</param>
+    /// <param name="analyzers">Analyzers to run.</param>
+    /// <param name="cancellationToken">Cooperative cancellation token.</param>
+    /// <returns>Flat list of diagnostics enriched with project and file info.</returns>
     public static async Task<IReadOnlyList<DiagnosticInfo>> AnalyzeProjectAsync(
         string projectPath,
         IEnumerable<DiagnosticAnalyzer> analyzers,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        int contextLines = 2)
     {
         RegisterMSBuildIfNeeded();
 
         using var workspace = MSBuildWorkspace.Create();
         var project = await workspace.OpenProjectAsync(projectPath, cancellationToken: cancellationToken);
         var compilation = await project.GetCompilationAsync(cancellationToken);
-        if (compilation is null)
-            return Array.Empty<DiagnosticInfo>();
+        if (compilation is null) return Array.Empty<DiagnosticInfo>();
 
         var withAnalyzers = compilation.WithAnalyzers(analyzers.ToImmutableArray(), project.AnalyzerOptions, cancellationToken);
         var diags = await withAnalyzers.GetAnalyzerDiagnosticsAsync(cancellationToken);
 
         var list = new List<DiagnosticInfo>();
-        foreach (var d in diags.Where(d => d.Location.IsInSource))
+        foreach (var diagnostic in diags.Where(diag => diag.Location.IsInSource))
         {
-            var span = d.Location.GetLineSpan();
-            list.Add(new DiagnosticInfo
-            {
-                Id = d.Id,
-                Severity = d.Severity.ToString(),
-                Message = d.GetMessage(),
-                FilePath = span.Path,
-                Line = span.StartLinePosition.Line + 1,
-                Column = span.StartLinePosition.Character + 1,
-                Analyzer = d.Descriptor.Title.ToString(),
-                ProjectName = project.Name,
-                ContextSnippet = BuildContextSnippet(d.Location, contextLines: 3, cancellationToken)
-            });
+            list.Add(ToDiagnosticInfo(diagnostic, project.Name, cancellationToken, contextLines));
         }
+
         return list;
     }
-    private static string BuildContextSnippet(Location location, int contextLines = 3, CancellationToken ct = default)
-    {
-        var tree = location.SourceTree;
-        if (tree is null)
-            return string.Empty;
 
-        // SourceText from Roslyn to match the analyzed snapshot on disk.
-        var text = tree.GetText(ct);
+   
 
-        var lineSpan = location.GetLineSpan();
-        var startLine = Math.Max(0, lineSpan.StartLinePosition.Line - contextLines);
-        var endLine = Math.Min(text.Lines.Count - 1, lineSpan.EndLinePosition.Line + contextLines);
-
-        var hlStart = location.SourceSpan.Start; // absolute positions in file
-        var hlEnd = location.SourceSpan.End;
-
-        var sb = new StringBuilder();
-
-        // Width for line numbers
-        int width = (endLine + 1).ToString().Length;
-
-        for (int i = startLine; i <= endLine; i++)
-        {
-            var line = text.Lines[i];
-            var lineText = line.ToString();
-
-            // Intersect highlight with this line
-            bool intersects =
-                (hlStart <= line.End && hlEnd >= line.Start);
-
-            if (intersects)
-            {
-                // Insert [| and |] around the exact span within this line.
-                // Compute relative indices to the line start.
-                int relStart = Math.Clamp(hlStart - line.Start, 0, lineText.Length);
-                int relEnd = Math.Clamp(hlEnd - line.Start, 0, lineText.Length);
-
-                // Ensure start <= end
-                if (relEnd < relStart)
-                    (relStart, relEnd) = (relEnd, relStart);
-
-                // Insert end marker first to keep indices valid, then start.
-                lineText = lineText.Insert(relEnd, "|]").Insert(relStart, "[|");
-            }
-
-            // Mark the primary line with a simple indicator, no dashes.
-            string indicator = i == lineSpan.StartLinePosition.Line ? ">" : " ";
-            sb.Append((i + 1).ToString().PadLeft(width))
-              .Append(' ')
-              .Append(indicator)
-              .Append(' ')
-              .AppendLine(lineText);
-        }
-
-        return sb.ToString();
-    }
-
+    /// <summary>
+    /// Registers an MSBuild toolset for Roslyn if none is registered yet.
+    /// Uses the default Visual Studio installation on Windows which fits VS 2022.
+    /// </summary>
     private static void RegisterMSBuildIfNeeded()
     {
         if (!MSBuildLocator.IsRegistered)

@@ -110,4 +110,45 @@ public class AnalysisRunnerTests
         var count = results.Count(r => r.Id == WeakVariableNameAnalyzer.DiagnosticId);
         Assert.AreEqual(expectedCount, count, $"Unexpected MNA0004 count in {sample}.");
     }
+
+    [TestMethod]
+    public async Task MixedIssuesProject_Finds_All_Analyzers()
+    {
+        var projectPath = Path.Combine(RepoRoot(), "Samples", "MixedIssuesProject", "MixedIssuesProject.csproj");
+
+        var analyzers = new DiagnosticAnalyzer[]
+        {
+        new AsyncVoidAnalyzer(),
+        new EmptyCatchBlockAnalyzer(),
+        new WeakVariableNameAnalyzer()
+        };
+
+        var results = await AnalysisRunner.AnalyzeProjectAsync(projectPath, analyzers);
+
+        Assert.IsTrue(results.Any(r => r.Id == AsyncVoidAnalyzer.DiagnosticId), "Expected at least one MNA0001.");
+        Assert.IsTrue(results.Any(r => r.Id == EmptyCatchBlockAnalyzer.DiagnosticId), "Expected at least one MNA0002.");
+        Assert.IsTrue(results.Any(r => r.Id == WeakVariableNameAnalyzer.DiagnosticId), "Expected at least one MNA0004.");
+    }
+
+    [TestMethod]
+    [DataRow(AsyncVoidAnalyzer.DiagnosticId, 2)]
+    [DataRow(EmptyCatchBlockAnalyzer.DiagnosticId, 1)]
+    [DataRow(WeakVariableNameAnalyzer.DiagnosticId, 5)]
+    public async Task MixedIssuesProject_Exact_Diagnostic_Counts(string diagnosticId, int expectedCount)
+    {
+        var projectPath = Path.Combine(RepoRoot(), "Samples", "MixedIssuesProject", "MixedIssuesProject.csproj");
+
+        var analyzers = new DiagnosticAnalyzer[]
+        {
+        new AsyncVoidAnalyzer(),
+        new EmptyCatchBlockAnalyzer(),
+        new WeakVariableNameAnalyzer()
+        };
+
+        var results = await AnalysisRunner.AnalyzeProjectAsync(projectPath, analyzers);
+
+        var count = results.Count(r => r.Id == diagnosticId);
+        Assert.AreEqual(expectedCount, count, $"Unexpected count for {diagnosticId}.");
+    }
+
 }

@@ -254,6 +254,8 @@ public sealed class WeakVariableNameAnalyzer : DiagnosticAnalyzer
             return;
 
         var suffix = BuildSuggestionSuffix(cand.Type, cand.Name, known);
+        var recommendationText = BuildRecommendation(cand.Type, cand.Name, known);
+        var properties = ImmutableDictionary<string, string?>.Empty.Add("Suggestion", recommendationText);
         context.ReportDiagnostic(Diagnostic.Create(Rule, cand.Location, cand.Name, suffix));
     }
 
@@ -265,6 +267,8 @@ public sealed class WeakVariableNameAnalyzer : DiagnosticAnalyzer
             return;
 
         var suffix = BuildSuggestionSuffix(cand.Type, cand.Name, known);
+        var recommendationText = BuildRecommendation(cand.Type, cand.Name, known);
+        var properties = ImmutableDictionary<string, string?>.Empty.Add("Suggestion", recommendationText);
         context.ReportDiagnostic(Diagnostic.Create(Rule, cand.Location, cand.Name, suffix));
     }
 
@@ -331,4 +335,19 @@ public sealed class WeakVariableNameAnalyzer : DiagnosticAnalyzer
         }
         return false;
     }
+
+    private static string BuildRecommendation(ITypeSymbol? type, string name, KnownTypes known)
+    {
+        if (type is null)
+            return "Rename to a descriptive name that reflects the variable's purpose.";
+
+        if (type.SpecialType == SpecialType.System_Boolean)
+            return "Rename to a boolean-style name starting with 'is', 'has', or 'can'.";
+
+        if (IsCollectionType(type, known.IEnumerableT))
+            return "Rename to a plural name that reflects multiple items.";
+
+        return "Rename to a descriptive name that reflects the variable's purpose.";
+    }
+
 }

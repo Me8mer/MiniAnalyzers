@@ -1,0 +1,12 @@
+root = true
+
+# Global defaults for this suite
+[*.cs]
+dotnet_diagnostic.MNA0004.min_length = 4
+dotnet_diagnostic.MNA0004.allowed_names = aa
+dotnet_diagnostic.MNA0004.weak_names = potato
+dotnet_diagnostic.MNA0004.check_foreach = false
+
+# Turn foreach checks ON only for files named ForeachOn.cs
+[**/ForeachOn.cs]
+dotnet_diagnostic.MNA0004.check_foreach = true

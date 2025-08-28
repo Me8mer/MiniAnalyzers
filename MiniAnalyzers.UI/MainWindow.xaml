@@ -2,7 +2,18 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Mini Analyzers" Height="520" Width="960">
-    <Grid Margin="12">
+
+    <DockPanel>
+        <!-- Top menu bar -->
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="_File">
+                <MenuItem Header="E_xit" Click="Exit_Click"/>
+            </MenuItem>
+            <MenuItem Header="_Tools">
+                <MenuItem Header="_Settings" Click="Settings_Click"/>
+            </MenuItem>
+        </Menu>
+        <Grid Margin="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -30,41 +41,51 @@
                Foreground="Gray" />
 
         <!-- Results table -->
-        <DataGrid x:Name="grid" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="4"
+            <DataGrid x:Name="grid" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="4"
               AutoGenerateColumns="False" IsReadOnly="True"
               ItemsSource="{Binding Results}"
               RowDetailsVisibilityMode="Collapsed"
               MouseDoubleClick="grid_MouseDoubleClick">
-            <DataGrid.Columns>
-                <DataGridTextColumn Header="Project" Binding="{Binding ProjectName}" Width="*" />
-                <DataGridTextColumn Header="Id"      Binding="{Binding Id}"          Width="100" />
-                <DataGridTextColumn Header="Severity" Binding="{Binding Severity}"    Width="100" />
-                <DataGridTextColumn Header="File"    Binding="{Binding FilePath}"    Width="2*" />
-                <DataGridTextColumn Header="Line"    Binding="{Binding Line}"        Width="60" />
-                <DataGridTextColumn Header="Col"     Binding="{Binding Column}"      Width="60" />
-                <DataGridTextColumn Header="Message" Binding="{Binding Message}"     Width="3*" />
-            </DataGrid.Columns>
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Project" Binding="{Binding ProjectName}" Width="*" />
+                    <DataGridTextColumn Header="Id"      Binding="{Binding Id}"          Width="100" />
+                    <DataGridTextColumn Header="Severity" Binding="{Binding Severity}"    Width="100" />
+                    <DataGridTextColumn Header="File"    Binding="{Binding FilePath}"    Width="2*" />
+                    <DataGridTextColumn Header="Line"    Binding="{Binding Line}"        Width="60" />
+                    <DataGridTextColumn Header="Col"     Binding="{Binding Column}"      Width="60" />
+                    <DataGridTextColumn Header="Message" Binding="{Binding Message}"     Width="3*" />
+                </DataGrid.Columns>
 
-            <DataGrid.RowDetailsTemplate>
-                <DataTemplate>
-                    <Border Margin="4" Padding="8" BorderThickness="1"
-                    BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}">
-                        <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                              VerticalScrollBarVisibility="Auto">
-                            <TextBox Text="{Binding ContextSnippet}"
-                             FontFamily="Consolas"
-                             FontSize="12"
-                             IsReadOnly="True"
-                             TextWrapping="NoWrap"
-                             Background="{x:Null}"
-                             BorderThickness="0"/>
-                        </ScrollViewer>
-                    </Border>
-                </DataTemplate>
-            </DataGrid.RowDetailsTemplate>
+                <DataGrid.RowDetailsTemplate>
+                    <DataTemplate>
+                        <StackPanel Margin="4">
+                            <TextBlock Text="Recommendation"
+                               FontWeight="SemiBold"
+                               Margin="0,0,0,4"/>
+                            <TextBlock Text="{Binding Suggestion}"
+                               TextWrapping="Wrap"
+                               MaxWidth="650"
+                               Margin="0,0,0,8"/>   
+                            <Border Margin="4" Padding="8" BorderThickness="1"
+                                        BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}">
+                                <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                              VerticalScrollBarVisibility="Auto">
+                                    <TextBox Text="{Binding ContextSnippet}"
+                                         FontFamily="Consolas"
+                                         FontSize="12"
+                                         IsReadOnly="True"
+                                         TextWrapping="NoWrap"
+                                         Background="{x:Null}"
+                                         BorderThickness="0"/>
+                                </ScrollViewer>
+                            </Border>
+                        </StackPanel>
+                    </DataTemplate>
+                
+
+                </DataGrid.RowDetailsTemplate>
         </DataGrid>
-        
-        
-    </Grid>
+        </Grid>
+    </DockPanel>
 
 </Window>

@@ -28,6 +28,13 @@ public sealed class ConsoleWriteLineAnalyzer : DiagnosticAnalyzer
     private static readonly LocalizableString Description =
         "Console I/O is brittle for diagnostics. Use a structured logging framework that supports levels, sinks, and configuration.";
 
+    private const string RecommendationText =
+    "Replace Console.Write/WriteLine with a logging API. Prefer ILogger or Debug.WriteLine for diagnostics.";
+   
+    private static readonly ImmutableDictionary<string, string?> RecommendationProps =
+    ImmutableDictionary<string, string?>.Empty.Add("Suggestion", RecommendationText);
+
+
     private static readonly DiagnosticDescriptor Rule = new(
         id: DiagnosticId,
         title: Title,
@@ -74,7 +81,8 @@ public sealed class ConsoleWriteLineAnalyzer : DiagnosticAnalyzer
 
         // Report at the identifier 'WriteLine' when possible for a precise highlight.
         var location = GetNameLocation(op) ?? op.Syntax.GetLocation();
-        context.ReportDiagnostic(Diagnostic.Create(Rule, location));
+
+        context.ReportDiagnostic(Diagnostic.Create(Rule, location, properties: RecommendationProps));
     }
 
     private static Location? GetNameLocation(IInvocationOperation op)

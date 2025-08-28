@@ -1,0 +1,9 @@
+root = true
+
+[*.cs]
+
+# Configure WeakVariableNameAnalyzer (MNA0004)
+dotnet_diagnostic.MNA0004.min_length = 4
+dotnet_diagnostic.MNA0004.allowed_names = id,ct,ok
+dotnet_diagnostic.MNA0004.weak_names = tmp,foo,val,data
+dotnet_diagnostic.MNA0004.check_foreach = true

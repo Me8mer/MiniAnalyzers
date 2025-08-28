@@ -34,6 +34,14 @@ public sealed class AsyncVoidAnalyzer : DiagnosticAnalyzer
     private static readonly LocalizableString Title =
         "Avoid 'async void' methods";
 
+    private const string RecommendationText =
+    "Change 'async void' to an async method that returns Task or Task<T>. " +
+    "If this is an async lambda assigned to a void delegate, change the delegate type to Func<Task> " +
+    "or route the logic through an async Task method.";
+
+    private static readonly ImmutableDictionary<string, string?> RecommendationProps =
+    ImmutableDictionary<string, string?>.Empty.Add("Suggestion", RecommendationText);
+
     /// <summary>
     /// Message format string used in the warning itself.
     /// <para>Example: <c>Method 'DoWork' is 'async void'. Return Task or Task&lt;T&gt; instead.</c></para>
@@ -125,7 +133,7 @@ public sealed class AsyncVoidAnalyzer : DiagnosticAnalyzer
 
         // Report the diagnostic at the 'void' keyword location.
         var reportLocation = node.ReturnType.GetLocation();
-        context.ReportDiagnostic(Diagnostic.Create(Rule, reportLocation, symbol.Name));
+        context.ReportDiagnostic(Diagnostic.Create(Rule, reportLocation, properties: RecommendationProps, symbol.Name));
     }
 
     /// <summary>
@@ -146,12 +154,13 @@ public sealed class AsyncVoidAnalyzer : DiagnosticAnalyzer
         if (symbol is null)
             return;
 
+
         // Local functions have MethodKind.LocalFunction.
         if (symbol.MethodKind != MethodKind.LocalFunction)
             return;
 
         var reportLocation = node.ReturnType.GetLocation();
-        context.ReportDiagnostic(Diagnostic.Create(Rule, reportLocation, symbol.Name));
+        context.ReportDiagnostic(Diagnostic.Create(Rule, reportLocation, properties: RecommendationProps,symbol.Name));
     }
 
     /// <summary>
@@ -185,7 +194,7 @@ public sealed class AsyncVoidAnalyzer : DiagnosticAnalyzer
             return;
 
         var name = anon.Symbol?.Name ?? "(anonymous)";
-        context.ReportDiagnostic(Diagnostic.Create(Rule, anon.Syntax.GetLocation(), name));
+        context.ReportDiagnostic(Diagnostic.Create(Rule, anon.Syntax.GetLocation(), properties: RecommendationProps, name));
     }
 
     /// <summary>
@@ -215,7 +224,7 @@ public sealed class AsyncVoidAnalyzer : DiagnosticAnalyzer
             return;
 
         var name = anon.Symbol?.Name ?? "(anonymous)";
-        context.ReportDiagnostic(Diagnostic.Create(Rule, anon.Syntax.GetLocation(), name));
+        context.ReportDiagnostic(Diagnostic.Create(Rule, anon.Syntax.GetLocation(), properties: RecommendationProps, name));
     }
 
 

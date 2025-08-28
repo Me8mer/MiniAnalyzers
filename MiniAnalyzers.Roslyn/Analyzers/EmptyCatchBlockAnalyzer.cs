@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using System.Collections.Immutable;
+using static System.Reflection.Metadata.BlobBuilder;
 
 namespace MiniAnalyzers.Roslyn.Analyzers;
 
@@ -25,6 +26,12 @@ public sealed class EmptyCatchBlockAnalyzer : DiagnosticAnalyzer
 
     private static readonly LocalizableString Description =
        "Empty catch blocks hide failures and complicate debugging. Handle the exception, log it, or rethrow.";
+
+    private const string RecommendationText =
+        "Do not leave catch blocks empty. Either rethrow with throw, log the exception, or handle it explicitly.";
+
+    private static readonly ImmutableDictionary<string, string?> RecommendationProps =
+    ImmutableDictionary<string, string?>.Empty.Add("Suggestion", RecommendationText);
 
     private static readonly DiagnosticDescriptor Rule = new(
         id: DiagnosticId,
@@ -83,7 +90,7 @@ public sealed class EmptyCatchBlockAnalyzer : DiagnosticAnalyzer
         }
 
         var location = clause.CatchKeyword.GetLocation();
-        context.ReportDiagnostic(Diagnostic.Create(Rule, location));
+        context.ReportDiagnostic(Diagnostic.Create(Rule, location, properties: RecommendationProps));
     }
 
     //helper to decide “effective emptiness”.
