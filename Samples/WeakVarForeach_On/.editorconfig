@@ -1,0 +1,7 @@
+root = true
+
+[*.cs]
+dotnet_diagnostic.MNA0004.min_length = 4
+dotnet_diagnostic.MNA0004.allowed_names = id,ct,ok,e
+dotnet_diagnostic.MNA0004.weak_names = foo,bar,tmp,val,data
+dotnet_diagnostic.MNA0004.check_foreach = true

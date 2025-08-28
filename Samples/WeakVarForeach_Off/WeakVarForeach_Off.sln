@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36408.4 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WeakVarForeach_Off", "WeakVarForeach_Off.csproj", "{FCB40B7C-FF9D-B585-6142-8507E83257B0}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{FCB40B7C-FF9D-B585-6142-8507E83257B0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FCB40B7C-FF9D-B585-6142-8507E83257B0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FCB40B7C-FF9D-B585-6142-8507E83257B0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FCB40B7C-FF9D-B585-6142-8507E83257B0}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {CB01418A-3AF8-46ED-97FD-61C389CE627F}
+	EndGlobalSection
+EndGlobal

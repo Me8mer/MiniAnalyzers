@@ -29,6 +29,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MiniAnalyzers.Roslyn\MiniAnalyzers.Roslyn.csproj" />
+    <ProjectReference Include="..\MiniAnalyzers.Core\MiniAnalyzers.Core.csproj" />
   </ItemGroup>
 
 
@@ -36,5 +37,10 @@
     <EditorConfigFiles Update="C:\School\Programko\MiniAnalyzers\MiniAnalyzers.Tests\.editorconfig">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </EditorConfigFiles>
+  </ItemGroup>
+
+
+  <ItemGroup>
+    <Folder Include="Samples\" />
   </ItemGroup>
 </Project>

@@ -1,0 +1,5 @@
+root = true
+
+[*.cs]
+
+dotnet_diagnostic.MNA0004.check_foreach = false

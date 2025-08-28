@@ -1,5 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+  <ItemGroup>
+    <ProjectReference Include="..\MiniAnalyzers.Core\MiniAnalyzers.Core.csproj" />
+    <ProjectReference Include="..\MiniAnalyzers.Roslyn\MiniAnalyzers.Roslyn.csproj" />
+  </ItemGroup>
+
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net9.0-windows</TargetFramework>
