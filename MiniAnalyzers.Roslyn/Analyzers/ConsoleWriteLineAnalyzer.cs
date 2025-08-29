@@ -45,10 +45,22 @@ public sealed class ConsoleWriteLineAnalyzer : DiagnosticAnalyzer
 
     private const string RecommendationText =
     "Replace Console.Write/WriteLine with a logging API. Prefer ILogger or Debug.WriteLine for diagnostics.";
-   
+
+    // Suggestion for the prefix rule – includes the required prefix to be actionable.
+    private const string RecommendationTextPrefixTemplate =
+        "Prepend the required prefix '{0}' to the Console message, or use a logging API that adds context automatically (e.g., ILogger).";
+
     private static readonly ImmutableDictionary<string, string?> RecommendationProps =
     ImmutableDictionary<string, string?>.Empty.Add("Suggestion", RecommendationText);
 
+    // Builds a per-diagnostic properties bag so the UI can show a concrete suggestion.
+    private static ImmutableDictionary<string, string?> BuildPrefixSuggestionProps(string requiredPrefix)
+    {
+        var formatted = string.Format(RecommendationTextPrefixTemplate, requiredPrefix);
+        return ImmutableDictionary<string, string?>.Empty
+            .Add("Suggestion", formatted)
+            .Add("RequiredPrefix", requiredPrefix);
+    }
 
     private static readonly DiagnosticDescriptor Rule = new(
         id: DiagnosticId,
@@ -128,7 +140,7 @@ public sealed class ConsoleWriteLineAnalyzer : DiagnosticAnalyzer
     {
         // file path hint
         var path = op.Syntax.SyntaxTree?.FilePath;
-        if (!string.IsNullOrEmpty(path) && path.IndexOf("Tests", StringComparison.OrdinalIgnoreCase) >= 0)
+        if (!string.IsNullOrEmpty(path) && path!.IndexOf("Tests", StringComparison.OrdinalIgnoreCase) >= 0)
             return true;
 
         // attribute hint on method or containing type
@@ -192,7 +204,11 @@ public sealed class ConsoleWriteLineAnalyzer : DiagnosticAnalyzer
             : (GetNameLocation(invocation) ?? invocation.Syntax.GetLocation());
 
         // Only one diagnostic per call when the prefix is required and missing.
-        context.ReportDiagnostic(Diagnostic.Create(RuleMissingPrefix, reportLocation, options.RequiredPrefix));
+        context.ReportDiagnostic(Diagnostic.Create(
+             RuleMissingPrefix,
+             reportLocation,
+             properties: BuildPrefixSuggestionProps(options.RequiredPrefix),
+             options.RequiredPrefix));
         return true;
     }
 

@@ -11,7 +11,11 @@ using System.Threading;
 using System.Threading.Tasks;
 
 namespace MiniAnalyzers.Core;
-
+/// <summary>
+/// Runs Roslyn analyzers over a solution or a project and returns
+/// only source-based diagnostics enriched for the UI (project name,
+/// file path, location, and a context snippet).
+/// </summary>
 public static class AnalysisRunner
 {
     /// <summary>
@@ -43,7 +47,7 @@ public static class AnalysisRunner
             var compilation = await project.GetCompilationAsync(cancellationToken);
             if (compilation is null) continue;
 
-            var withAnalyzers = compilation.WithAnalyzers(analyzers.ToImmutableArray(), project.AnalyzerOptions, cancellationToken);
+            var withAnalyzers = compilation.WithAnalyzers(analyzers.ToImmutableArray(), project.AnalyzerOptions);
             var diags = await withAnalyzers.GetAnalyzerDiagnosticsAsync(cancellationToken);
 
             foreach (var diagnostic in diags.Where(diag => diag.Location.IsInSource))
@@ -59,9 +63,10 @@ public static class AnalysisRunner
     /// Maps a Roslyn <see cref="Microsoft.CodeAnalysis.Diagnostic"/> to a <see cref="DiagnosticInfo"/>.
     /// Also builds a formatted code snippet for quick context preview.
     /// </summary>
-    /// <param name="d">Source based diagnostic.</param>
+    /// <param name="diagnostic">Source based diagnostic.</param>
     /// <param name="projectName">Owning project name.</param>
     /// <param name="ct">Cooperative cancellation token.</param>
+    /// <param name="contextLines">Number of context lines to include in the snippet.</param>
     /// <returns>Populated <see cref="DiagnosticInfo"/> ready for UI binding.</returns>
     private static DiagnosticInfo ToDiagnosticInfo(Diagnostic diagnostic, string projectName, CancellationToken ct, int contextLines)
     {
@@ -89,6 +94,7 @@ public static class AnalysisRunner
     /// <param name="projectPath">Absolute path to a .csproj file.</param>
     /// <param name="analyzers">Analyzers to run.</param>
     /// <param name="cancellationToken">Cooperative cancellation token.</param>
+    /// <param name="contextLines">Number of context lines to include in the snippet.</param>
     /// <returns>Flat list of diagnostics enriched with project and file info.</returns>
     public static async Task<IReadOnlyList<DiagnosticInfo>> AnalyzeProjectAsync(
         string projectPath,
@@ -103,7 +109,7 @@ public static class AnalysisRunner
         var compilation = await project.GetCompilationAsync(cancellationToken);
         if (compilation is null) return Array.Empty<DiagnosticInfo>();
 
-        var withAnalyzers = compilation.WithAnalyzers(analyzers.ToImmutableArray(), project.AnalyzerOptions, cancellationToken);
+        var withAnalyzers = compilation.WithAnalyzers(analyzers.ToImmutableArray(), project.AnalyzerOptions);
         var diags = await withAnalyzers.GetAnalyzerDiagnosticsAsync(cancellationToken);
 
         var list = new List<DiagnosticInfo>();

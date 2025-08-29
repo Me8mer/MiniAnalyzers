@@ -46,8 +46,19 @@ internal static class OptionReaders
 
     public static bool TryGet(AnalyzerConfigOptions o, string key, out string raw)
     {
-        if (o.TryGetValue(key, out raw)) return true;
-        if (o.TryGetValue(key.ToLowerInvariant(), out raw)) return true;
+        // Ensure we only assign non-null values to 'raw'.
+        if (o.TryGetValue(key, out var candidate) && candidate is not null)
+        {
+            raw = candidate;
+            return true;
+        }
+
+        if (o.TryGetValue(key.ToLowerInvariant(), out candidate) && candidate is not null)
+        {
+            raw = candidate;
+            return true;
+        }
+
         raw = string.Empty;
         return false;
     }
