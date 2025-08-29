@@ -1,14 +1,13 @@
-﻿using Microsoft.Build.Locator;
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.Diagnostics;
-using Microsoft.CodeAnalysis.MSBuild;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Build.Locator;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.MSBuild;
 
 namespace MiniAnalyzers.Core;
 /// <summary>
@@ -38,17 +37,18 @@ public static class AnalysisRunner
     {
         RegisterMSBuildIfNeeded();
 
+        var analyzersArray = analyzers.ToImmutableArray();
         using var workspace = MSBuildWorkspace.Create();
-        var solution = await workspace.OpenSolutionAsync(solutionPath, null, cancellationToken);
+        var solution = await workspace.OpenSolutionAsync(solutionPath, null, cancellationToken).ConfigureAwait(false);
         var results = new List<DiagnosticInfo>();
 
-        foreach (var project in solution.Projects.Where(p => p.Language == LanguageNames.CSharp))
+        foreach (var project in solution.Projects.Where(projectItem => projectItem.Language == LanguageNames.CSharp))
         {
             var compilation = await project.GetCompilationAsync(cancellationToken);
             if (compilation is null) continue;
 
             var withAnalyzers = compilation.WithAnalyzers(analyzers.ToImmutableArray(), project.AnalyzerOptions);
-            var diags = await withAnalyzers.GetAnalyzerDiagnosticsAsync(cancellationToken);
+            var diags = await withAnalyzers.GetAnalyzerDiagnosticsAsync(cancellationToken).ConfigureAwait(false); ;
 
             foreach (var diagnostic in diags.Where(diag => diag.Location.IsInSource))
             {
@@ -110,7 +110,7 @@ public static class AnalysisRunner
         if (compilation is null) return Array.Empty<DiagnosticInfo>();
 
         var withAnalyzers = compilation.WithAnalyzers(analyzers.ToImmutableArray(), project.AnalyzerOptions);
-        var diags = await withAnalyzers.GetAnalyzerDiagnosticsAsync(cancellationToken);
+        var diags = await withAnalyzers.GetAnalyzerDiagnosticsAsync(cancellationToken).ConfigureAwait(false);
 
         var list = new List<DiagnosticInfo>();
         foreach (var diagnostic in diags.Where(diag => diag.Location.IsInSource))

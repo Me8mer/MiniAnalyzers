@@ -49,7 +49,7 @@ public sealed class FilterSettings : INotifyPropertyChanged
     public string SearchText
     {
         get => searchText;
-        set { if (searchText != value) { searchText = value; searchText = value; OnPropertyChanged(nameof(SearchText)); } }
+        set { if (searchText != value) { searchText = value; OnPropertyChanged(nameof(SearchText)); } }
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

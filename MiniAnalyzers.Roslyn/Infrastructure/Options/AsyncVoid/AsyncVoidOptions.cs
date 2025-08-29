@@ -1,4 +1,4 @@
-﻿namespace MiniAnalyzers.Roslyn.Infrastructure;
+﻿namespace MiniAnalyzers.Roslyn.Infrastructure.Options.AsyncVoid;
 
 internal sealed record AsyncVoidOptions(
     bool AllowEventHandlers = true,

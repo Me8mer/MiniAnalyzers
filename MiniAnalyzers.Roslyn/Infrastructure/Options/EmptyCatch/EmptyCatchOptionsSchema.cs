@@ -1,8 +1,9 @@
 ﻿using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
+using MiniAnalyzers.Roslyn.Infrastructure.Common;
 
-namespace MiniAnalyzers.Roslyn.Infrastructure;
+namespace MiniAnalyzers.Roslyn.Infrastructure.Options.EmptyCatch;
 
 internal sealed class EmptyCatchOptionsSchema : IOptionSchema<EmptyCatchOptions>
 {

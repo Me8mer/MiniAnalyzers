@@ -1,13 +1,13 @@
-﻿using Microsoft.CodeAnalysis;
+﻿using System;
+using System.Collections.Immutable;
+using System.Linq;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
-using System;
-using System.Collections.Immutable;
-using System.Linq;
-
-using MiniAnalyzers.Roslyn.Infrastructure;
-
+using Microsoft.CodeAnalysis.Operations;
+using MiniAnalyzers.Roslyn.Infrastructure.Common;
+using MiniAnalyzers.Roslyn.Infrastructure.Options.WeakVar;
 /// <summary>
 /// Flags short or non-descriptive names across multiple declaration contexts.
 /// Targets:
@@ -57,10 +57,14 @@ public sealed class WeakVariableNameAnalyzer : DiagnosticAnalyzer
     // Case-sensitive on purpose to keep naming style consistent.
     private static readonly ImmutableHashSet<string> AllowedShortNames =
         ImmutableHashSet.Create(StringComparer.Ordinal,
-            "id", "ct", "ok", "db", "ip", "ui", "os");
+            "id", "ct", "ok", "db", "ip", "ui", "os", "min","max");
     // A single site to carry the analyzed name, its type (if any), and the precise location to report.
     private readonly record struct NameCandidate(string Name, ITypeSymbol? Type, Location Location);
     // Compilation-scoped cache of well-known framework symbols needed by suggestions.
+    private static bool IsInsideForeach(SyntaxNode node) =>
+    node.FirstAncestorOrSelf<ForEachStatementSyntax>() is not null ||
+    node.FirstAncestorOrSelf<ForEachVariableStatementSyntax>() is not null;
+
     private readonly record struct KnownTypes(
         INamedTypeSymbol? IEnumerableT,
         INamedTypeSymbol? EventArgs);
@@ -82,6 +86,7 @@ public sealed class WeakVariableNameAnalyzer : DiagnosticAnalyzer
     /// Register once per-compilation, cache framework symbols, and pass them to all callbacks.
     /// This avoids resolving well-known types on every variable we analyze.
     /// </summary>
+    /// <param name="context">Analyzer registration context.</param>
     public override void Initialize(AnalysisContext context)
     {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
@@ -222,23 +227,26 @@ public sealed class WeakVariableNameAnalyzer : DiagnosticAnalyzer
 
     private static void AnalyzeParameter(SymbolAnalysisContext context, KnownTypes known)
     {
-        var p = (IParameterSymbol)context.Symbol;
+        var parameter = (IParameterSymbol)context.Symbol;
 
         // Noise reduction: conventional 'e' for EventArgs-typed parameters
-        if (p.Name is "e" && DerivesFrom(p.Type, known.EventArgs))
+        if (parameter.Name is "e" && DerivesFrom(parameter.Type, known.EventArgs))
             return;
 
-        if (TryCreateCandidate(p, out var cand))
+        if (TryCreateCandidate(parameter, out var cand))
             EvaluateAndReportIfWeak(context, cand, known);
     }
 
     private static void AnalyzeSingleDesignation(SyntaxNodeAnalysisContext context, KnownTypes known)
     {
         var opts = context.GetOptions<WeakVarOptions, WeakVarOptionsSchema>();
-        if (!opts.CheckForeach)
-            return; // skip all foreach variable diagnostics if disabled
 
         var single = (SingleVariableDesignationSyntax)context.Node;
+
+        // Only gate foreach variables by the option. Pattern and deconstruction variables still apply.
+        if (IsInsideForeach(single) && !opts.CheckForeach)
+            return;
+
         var sym = context.SemanticModel.GetDeclaredSymbol(single, context.CancellationToken) as ILocalSymbol;
         if (TryCreateCandidate(sym, single.Identifier, out var cand))
             EvaluateAndReportIfWeak(context, cand, known);
@@ -256,7 +264,7 @@ public sealed class WeakVariableNameAnalyzer : DiagnosticAnalyzer
         var suffix = BuildSuggestionSuffix(cand.Type, cand.Name, known);
         var recommendationText = BuildRecommendation(cand.Type, cand.Name, known);
         var properties = ImmutableDictionary<string, string?>.Empty.Add("Suggestion", recommendationText);
-        context.ReportDiagnostic(Diagnostic.Create(Rule, cand.Location, cand.Name, suffix));
+        context.ReportDiagnostic(Diagnostic.Create(Rule, cand.Location, properties: properties, cand.Name, suffix));
     }
 
     private static void EvaluateAndReportIfWeak(SymbolAnalysisContext context, NameCandidate cand, KnownTypes known)
@@ -269,7 +277,8 @@ public sealed class WeakVariableNameAnalyzer : DiagnosticAnalyzer
         var suffix = BuildSuggestionSuffix(cand.Type, cand.Name, known);
         var recommendationText = BuildRecommendation(cand.Type, cand.Name, known);
         var properties = ImmutableDictionary<string, string?>.Empty.Add("Suggestion", recommendationText);
-        context.ReportDiagnostic(Diagnostic.Create(Rule, cand.Location, cand.Name, suffix));
+        context.ReportDiagnostic(Diagnostic.Create(Rule, cand.Location, properties: properties, cand.Name, suffix));
+
     }
 
     // Decide whether a raw identifier is weak by length or token membership.
@@ -336,6 +345,7 @@ public sealed class WeakVariableNameAnalyzer : DiagnosticAnalyzer
         }
         return false;
     }
+
 
     private static string BuildRecommendation(ITypeSymbol? type, string name, KnownTypes known)
     {

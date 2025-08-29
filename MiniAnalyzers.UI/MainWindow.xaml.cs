@@ -3,15 +3,15 @@ using Microsoft.Win32;
 using MiniAnalyzers.Core;
 using MiniAnalyzers.Roslyn.Analyzers;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
+using System.Windows.Threading;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
-using System.ComponentModel;
 using System.Windows.Data;
+using System.Windows.Input;
+using System.Linq;
+
 
 namespace MiniAnalyzers.UI;
 
@@ -34,13 +34,16 @@ public partial class MainWindow : Window
         _knownRules = GetActiveAnalyzers()
             .SelectMany(a => a.SupportedDiagnostics)
             .Select(d => new RuleSummary(d.Id, d.Title.ToString()))
-            .GroupBy(r => r.Id).Select(g => g.First())  // avoid duplicates if any
-            .OrderBy(r => r.Id)
+            .GroupBy(r => r.id).Select(g => g.First())  // avoid duplicates if any
+            .OrderBy(r => r.id)
             .ToList();
         _resultsView.Filter = FilterPredicate;
 
         // Any change to Filters triggers a view refresh.
-        Filters.PropertyChanged += (_, __) => _resultsView?.Refresh();
+        Filters.PropertyChanged += (_, __) =>
+        {
+                _resultsView?.Refresh();
+        };
     }
 
     private void Browse_Click(object sender, RoutedEventArgs e)
@@ -64,7 +67,8 @@ public partial class MainWindow : Window
     {
         if (sender is DataGrid grid && grid.SelectedItem != null)
         {
-            var row = (DataGridRow)grid.ItemContainerGenerator.ContainerFromItem(grid.SelectedItem);
+            var row = (DataGridRow?)grid.ItemContainerGenerator.ContainerFromItem(grid.SelectedItem);
+            if (row is null) return; // virtualization can return null
             row.DetailsVisibility =
                 row.DetailsVisibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
         }
@@ -73,7 +77,7 @@ public partial class MainWindow : Window
     {
         // Signal cancellation. Analyze_Click already handles TaskCanceledException.
         _cts?.Cancel();
-        txtStatus.Text = "Cancel requested…";
+        txtStatus.Text = "Cancel requested...";
     }
 
     private void Settings_Click(object sender, RoutedEventArgs e)
@@ -96,33 +100,38 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Keep the first pass simple: disable UI and run.
+        // Disable UI while running.
         SetUiBusy(true);
         _cts = new CancellationTokenSource();
         Results.Clear();
-        txtStatus.Text = "Analyzing…";
+        txtStatus.Text = "Analyzing...";
 
         try
         {
-            // Choose analyzers you want to run from your library.
             var analyzers = GetActiveAnalyzers();
 
-            var isSolution = path.EndsWith(".sln", System.StringComparison.OrdinalIgnoreCase);
+            var isSolution = path.EndsWith(".sln", StringComparison.OrdinalIgnoreCase);
             var list = isSolution
                 ? await AnalysisRunner.AnalyzeSolutionAsync(path, analyzers, _cts.Token)
                 : await AnalysisRunner.AnalyzeProjectAsync(path, analyzers, _cts.Token);
 
-            _resultsView?.Refresh();
-            foreach (var d in list.OrderBy(d => d.FilePath).ThenBy(d => d.Line).ThenBy(d => d.Column))
+            foreach (var d in list.OrderBy(d => d.FilePath)
+                                  .ThenBy(d => d.Line)
+                                  .ThenBy(d => d.Column))
+            {
                 Results.Add(d);
+            }
 
-            txtStatus.Text = $"Diagnostics: {Results.Count} (showing {Results.Count(r => FilterPredicate(r))})";
+            // Compute counts directly from the collection.
+            var total = Results.Count;
+            var visible = Results.Count(diagnosticItem => FilterPredicate(diagnosticItem));
+            txtStatus.Text = $"Diagnostics: {total} (showing {visible})";
         }
         catch (TaskCanceledException)
         {
             txtStatus.Text = "Canceled.";
         }
-        catch (System.Exception ex)
+        catch (Exception ex)
         {
             MessageBox.Show(this, ex.Message, "Analysis failed");
             txtStatus.Text = "Error.";
@@ -130,9 +139,12 @@ public partial class MainWindow : Window
         finally
         {
             SetUiBusy(false);
+            _cts?.Dispose();
             _cts = null;
         }
     }
+
+
 
     private void SetUiBusy(bool busy)
     {
@@ -141,9 +153,9 @@ public partial class MainWindow : Window
         btnCancel.IsEnabled = busy;
     }
 
-    private bool FilterPredicate(object item)
+    private bool FilterPredicate(object filterItem)
     {
-        if (item is not DiagnosticInfo diagnostic)
+        if (filterItem is not DiagnosticInfo diagnostic)
             return false;
 
         // 1) Severity gate
@@ -164,10 +176,10 @@ public partial class MainWindow : Window
     private bool IsSeverityAllowed(string severity)
     {
         // Keep the map simple and case-insensitive.
-        var s = severity.Trim();
-        if (s.Equals("Info", System.StringComparison.OrdinalIgnoreCase)) return Filters.ShowInfo;
-        if (s.Equals("Warning", System.StringComparison.OrdinalIgnoreCase)) return Filters.ShowWarning;
-        if (s.Equals("Error", System.StringComparison.OrdinalIgnoreCase)) return Filters.ShowError;
+        var trimmedSeverity = severity.Trim();
+        if (trimmedSeverity.Equals("Info", System.StringComparison.OrdinalIgnoreCase)) return Filters.ShowInfo;
+        if (trimmedSeverity.Equals("Warning", System.StringComparison.OrdinalIgnoreCase)) return Filters.ShowWarning;
+        if (trimmedSeverity.Equals("Error", System.StringComparison.OrdinalIgnoreCase)) return Filters.ShowError;
         // If something unexpected comes in, show it by default to avoid hiding data silently.
         return true;
     }
@@ -189,22 +201,22 @@ public partial class MainWindow : Window
     }
     private static HashSet<string> SplitCsv(string csv) =>
     csv.Split(',')
-       .Select(p => p.Trim())
-       .Where(p => p.Length > 0)
+       .Select(token => token.Trim())
+       .Where(token => token.Length > 0)
        .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-    private bool MatchesSearch(DiagnosticInfo d)
+    private bool MatchesSearch(DiagnosticInfo diagnostic)
     {
-        var q = Filters.SearchText;
-        if (string.IsNullOrWhiteSpace(q))
+        var searchText = Filters.SearchText;
+        if (string.IsNullOrWhiteSpace(searchText))
             return true;
 
         // Case-insensitive contains across several useful fields.
-        return Contains(d.Message, q)
-            || Contains(d.Analyzer, q)
-            || Contains(d.FilePath, q)
-            || Contains(d.ProjectName, q)
-            || Contains(d.Id, q);
+        return Contains(diagnostic.Message, searchText)
+            || Contains(diagnostic.Analyzer, searchText)
+            || Contains(diagnostic.FilePath, searchText)
+            || Contains(diagnostic.ProjectName, searchText)
+            || Contains(diagnostic.Id, searchText);
     }
 
     private static bool Contains(string? haystack, string needle) =>
@@ -213,8 +225,8 @@ public partial class MainWindow : Window
     private static DiagnosticAnalyzer[] GetActiveAnalyzers() => new DiagnosticAnalyzer[]
     {
         new AsyncVoidAnalyzer(),        // MNA0001 Avoid 'async void' methods
-        new ConsoleWriteLineAnalyzer(), // MNA0002 
         new EmptyCatchBlockAnalyzer(),  // MNA0002 Do not use empty 'catch' blocks
+        new ConsoleWriteLineAnalyzer(), // MNA0002 Replace Console.Write/WriteLine with a logging framework
         new WeakVariableNameAnalyzer()  // MNA0004 Use descriptive names
     };
 

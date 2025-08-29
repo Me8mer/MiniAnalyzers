@@ -3,7 +3,7 @@ using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 
-namespace MiniAnalyzers.Roslyn.Infrastructure
+namespace MiniAnalyzers.Roslyn.Infrastructure.Common
 {
     /// <summary>
     /// Per-analyzer schema that knows defaults and how to bind .editorconfig to a typed options snapshot.
@@ -43,7 +43,7 @@ namespace MiniAnalyzers.Roslyn.Infrastructure
 
         public TOptions ForSymbol(in SymbolAnalysisContext context)
         {
-            var tree = context.Symbol.Locations.FirstOrDefault()?.SourceTree;
+            var tree = context.Symbol.Locations.FirstOrDefault(l => l.IsInSource)?.SourceTree;
             return tree is null ? _schema.Defaults : ForTree(tree);
         }
     }

@@ -1,7 +1,8 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
+using MiniAnalyzers.Roslyn.Infrastructure.Common;
 
-namespace MiniAnalyzers.Roslyn.Infrastructure;
+namespace MiniAnalyzers.Roslyn.Infrastructure.Options.ConsoleWrite;
 
 internal sealed class ConsoleWriteOptionsSchema : IOptionSchema<ConsoleWriteOptions>
 {

@@ -9,8 +9,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MiniAnalyzers.Roslyn", "Min
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MiniAnalyzers.Core", "MiniAnalyzers.Core\MiniAnalyzers.Core.csproj", "{9BE48857-92EC-441D-81C7-C7A8F1D057C2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MiniAnalyzers.CodeFixes", "MiniAnalyzers.CodeFixes\MiniAnalyzers.CodeFixes.csproj", "{1D22BAF6-3D18-4C19-9957-ED8BE89436DC}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MiniAnalyzers.Tests", "MiniAnalyzers.Tests\MiniAnalyzers.Tests.csproj", "{B94264BD-9D09-4181-9258-4D135224C0C6}"
 EndProject
 Global
@@ -59,18 +57,6 @@ Global
 		{9BE48857-92EC-441D-81C7-C7A8F1D057C2}.Release|x64.Build.0 = Release|Any CPU
 		{9BE48857-92EC-441D-81C7-C7A8F1D057C2}.Release|x86.ActiveCfg = Release|Any CPU
 		{9BE48857-92EC-441D-81C7-C7A8F1D057C2}.Release|x86.Build.0 = Release|Any CPU
-		{1D22BAF6-3D18-4C19-9957-ED8BE89436DC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{1D22BAF6-3D18-4C19-9957-ED8BE89436DC}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{1D22BAF6-3D18-4C19-9957-ED8BE89436DC}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{1D22BAF6-3D18-4C19-9957-ED8BE89436DC}.Debug|x64.Build.0 = Debug|Any CPU
-		{1D22BAF6-3D18-4C19-9957-ED8BE89436DC}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{1D22BAF6-3D18-4C19-9957-ED8BE89436DC}.Debug|x86.Build.0 = Debug|Any CPU
-		{1D22BAF6-3D18-4C19-9957-ED8BE89436DC}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{1D22BAF6-3D18-4C19-9957-ED8BE89436DC}.Release|Any CPU.Build.0 = Release|Any CPU
-		{1D22BAF6-3D18-4C19-9957-ED8BE89436DC}.Release|x64.ActiveCfg = Release|Any CPU
-		{1D22BAF6-3D18-4C19-9957-ED8BE89436DC}.Release|x64.Build.0 = Release|Any CPU
-		{1D22BAF6-3D18-4C19-9957-ED8BE89436DC}.Release|x86.ActiveCfg = Release|Any CPU
-		{1D22BAF6-3D18-4C19-9957-ED8BE89436DC}.Release|x86.Build.0 = Release|Any CPU
 		{B94264BD-9D09-4181-9258-4D135224C0C6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{B94264BD-9D09-4181-9258-4D135224C0C6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B94264BD-9D09-4181-9258-4D135224C0C6}.Debug|x64.ActiveCfg = Debug|Any CPU
@@ -86,5 +72,8 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {B1057CD4-2A12-4185-A7CF-B76C758863AB}
 	EndGlobalSection
 EndGlobal

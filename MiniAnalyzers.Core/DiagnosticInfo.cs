@@ -31,13 +31,13 @@ public sealed class DiagnosticInfo
     public string ProjectName { get; init; } = "";
 
     /// <summary>Optional fix recommendation coming from the analyzer (Diagnostic.Properties["Suggestion"]).</summary>
-    public string? Suggestion { get; init; } = "";
+    public string? Suggestion { get; init; }
 
     /// <summary>
     /// Preformatted code excerpt around the location.
     /// The exact span is marked with [| and |].
     /// </summary>
-    public string? ContextSnippet { get; set; }
+    public string? ContextSnippet { get; init; }
 
 
 }

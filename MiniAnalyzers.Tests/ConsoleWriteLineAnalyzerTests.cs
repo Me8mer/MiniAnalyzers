@@ -12,15 +12,15 @@ public sealed class ConsoleWriteLineAnalyzerTests
     public async Task Flags_Basic_ConsoleWriteLine()
     {
         var code = @"
-using System;
-class C
-{
-    void M()
-    {
-        Console.{|MNA0003:WriteLine|}(""hello"");
+        using System;
+        class C
+        {
+            void M()
+            {
+                Console.{|MNA0003:WriteLine|}(""hello"");
 
-    }
-}";
+            }
+        }";
         await CSharpAnalyzerVerifier<ConsoleWriteLineAnalyzer>.VerifyAnalyzerAsync(code);
     }
 
@@ -28,14 +28,14 @@ class C
     public async Task Flags_FullyQualified_SystemConsoleWriteLine()
     {
         var code = @"
-class C
-{
-    void M()
-    {
-        System.Console.{|MNA0003:WriteLine|}();
+        class C
+        {
+            void M()
+            {
+                System.Console.{|MNA0003:WriteLine|}();
 
-    }
-}";
+            }
+        }";
         await CSharpAnalyzerVerifier<ConsoleWriteLineAnalyzer>.VerifyAnalyzerAsync(code);
     }
 
@@ -43,14 +43,14 @@ class C
     public async Task Flags_WithTypeAlias_ToSystemConsole()
     {
         var code = @"
-using ConsoleAlias = System.Console;
-class C
-{
-    void M()
-    {
-        ConsoleAlias.{|MNA0003:WriteLine|}(""x"");
-    }
-}";
+        using ConsoleAlias = System.Console;
+        class C
+        {
+            void M()
+            {
+                ConsoleAlias.{|MNA0003:WriteLine|}(""x"");
+            }
+        }";
         await CSharpAnalyzerVerifier<ConsoleWriteLineAnalyzer>.VerifyAnalyzerAsync(code);
     }
 
@@ -58,14 +58,14 @@ class C
     public async Task DoesNotFlag_CustomConsoleClass()
     {
         var code = @"
-class Console { public static void WriteLine() { } }
-class C
-{
-    void M()
-    {
-        Console.WriteLine(); // user-defined, should not be flagged
-    }
-}";
+        class Console { public static void WriteLine() { } }
+        class C
+        {
+            void M()
+            {
+                Console.WriteLine(); // user-defined, should not be flagged
+            }
+        }";
         await CSharpAnalyzerVerifier<ConsoleWriteLineAnalyzer>.VerifyAnalyzerAsync(code);
     }
 
@@ -73,13 +73,13 @@ class C
     public async Task DoesNotFlag_DebugWriteLine()
     {
         var code = @"
-class C
-{
-    void M()
-    {
-        System.Diagnostics.Debug.WriteLine(""debug"");
-    }
-}";
+        class C
+        {
+            void M()
+            {
+                System.Diagnostics.Debug.WriteLine(""debug"");
+            }
+        }";
         await CSharpAnalyzerVerifier<ConsoleWriteLineAnalyzer>.VerifyAnalyzerAsync(code);
     }
 
@@ -87,14 +87,14 @@ class C
     public async Task Flags_Basic_ConsoleWrite()
     {
         var code = @"
-using System;
-class C
-{
-    void M()
-    {
-        Console.{|MNA0003:Write|}(""hello"");
-    }
-}";
+        using System;
+        class C
+        {
+            void M()
+            {
+                Console.{|MNA0003:Write|}(""hello"");
+            }
+        }";
         await CSharpAnalyzerVerifier<ConsoleWriteLineAnalyzer>.VerifyAnalyzerAsync(code);
     }
 
@@ -102,14 +102,14 @@ class C
     public async Task Flags_FullyQualified_SystemConsoleWrite()
     {
         var code = @"
-class C
-{
-    void M()
-    {
-        System.Console.{|MNA0003:Write|}(""x"");
+        class C
+        {
+            void M()
+            {
+                System.Console.{|MNA0003:Write|}(""x"");
 
-    }
-}";
+            }
+        }";
         await CSharpAnalyzerVerifier<ConsoleWriteLineAnalyzer>.VerifyAnalyzerAsync(code);
     }
 
@@ -117,15 +117,15 @@ class C
     public async Task Flags_StaticUsing_Write_And_WriteLine()
     {
         var code = @"
-using static System.Console;
-class C
-{
-    void M()
-    {
-        {|MNA0003:Write|}(""a"");
-        {|MNA0003:WriteLine|}(""b"");
-    }
-}";
+        using static System.Console;
+        class C
+        {
+            void M()
+            {
+                {|MNA0003:Write|}(""a"");
+                {|MNA0003:WriteLine|}(""b"");
+            }
+        }";
         await CSharpAnalyzerVerifier<ConsoleWriteLineAnalyzer>.VerifyAnalyzerAsync(code);
     }
 }

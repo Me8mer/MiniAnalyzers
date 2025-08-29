@@ -10,8 +10,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Samples\**" />
     <Compile Remove="WeakVariableNameConfig\**" />
+    <EmbeddedResource Remove="Samples\**" />
     <EmbeddedResource Remove="WeakVariableNameConfig\**" />
+    <None Remove="Samples\**" />
     <None Remove="WeakVariableNameConfig\**" />
   </ItemGroup>
 
@@ -37,10 +40,5 @@
     <EditorConfigFiles Update="C:\School\Programko\MiniAnalyzers\MiniAnalyzers.Tests\.editorconfig">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </EditorConfigFiles>
-  </ItemGroup>
-
-
-  <ItemGroup>
-    <Folder Include="Samples\" />
   </ItemGroup>
 </Project>

@@ -1,12 +1,12 @@
-﻿using Microsoft.CodeAnalysis;
+﻿using System;
+using System.Collections.Immutable;
+using System.Linq;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
-using MiniAnalyzers.Roslyn.Infrastructure;
-using System; 
-using System.Collections.Immutable;
-using System.Linq;
+using MiniAnalyzers.Roslyn.Infrastructure.Common;
 
 namespace MiniAnalyzers.Roslyn.Analyzers;
 
@@ -75,10 +75,10 @@ public sealed class AsyncVoidAnalyzer : DiagnosticAnalyzer
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         ImmutableArray.Create(Rule);
 
-    /// <summary>
-    /// Called once at analyzer load. 
-    /// We register which syntax nodes we are interested in (methods, local functions).
-    /// </summary>
+/// <summary>
+/// Registers analysis callbacks for methods, local functions, and anonymous delegates.
+/// Skips generated code and enables concurrent execution.
+/// </summary>
     public override void Initialize(AnalysisContext context)
     {
         // Do not analyze auto-generated code (like .Designer.cs).
@@ -111,11 +111,8 @@ public sealed class AsyncVoidAnalyzer : DiagnosticAnalyzer
 
         // Retrieve symbol for semantic information (like method kind).
         var symbol = context.SemanticModel.GetDeclaredSymbol(node, context.CancellationToken) as IMethodSymbol;
-        if (symbol is null)
-            return;
 
-        // Skip constructors, operators, etc.
-        if (symbol.MethodKind != MethodKind.Ordinary)
+        if (symbol is null)
             return;
 
         // Skip overrides or explicit interface implementations
@@ -123,6 +120,10 @@ public sealed class AsyncVoidAnalyzer : DiagnosticAnalyzer
         if (symbol.IsOverride || symbol.ExplicitInterfaceImplementations.Length > 0)
             return;
 
+        // Skip constructors, operators, etc.
+        if (symbol.MethodKind != MethodKind.Ordinary)
+            return;
+ 
         var opts = context.GetAsyncVoidOptions();
 
         // Resolve System.EventArgs once per callback
@@ -194,7 +195,7 @@ public sealed class AsyncVoidAnalyzer : DiagnosticAnalyzer
 
         // Check for 'async' via syntax (reliable for anonymous functions)
         if (anon.Syntax is not AnonymousFunctionExpressionSyntax lambdaSyntax ||
-            lambdaSyntax.AsyncKeyword.RawKind == 0)
+            !lambdaSyntax.AsyncKeyword.IsKind(SyntaxKind.AsyncKeyword))
             return;
 
         // Skip typical event-handler-shaped delegates: (object, EventArgs-or-derived)
@@ -230,7 +231,7 @@ public sealed class AsyncVoidAnalyzer : DiagnosticAnalyzer
             return;
 
         if (anon.Syntax is not AnonymousFunctionExpressionSyntax lambdaSyntax ||
-            lambdaSyntax.AsyncKeyword.RawKind == 0)
+           !lambdaSyntax.AsyncKeyword.IsKind(SyntaxKind.AsyncKeyword))
             return;
 
         var eventArgsSymbol = context.Compilation.GetTypeByMetadataName("System.EventArgs");

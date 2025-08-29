@@ -1,9 +1,10 @@
-﻿using Microsoft.CodeAnalysis;
+﻿using System.Collections.Immutable;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
-using System.Collections.Immutable;
-using static System.Reflection.Metadata.BlobBuilder;
+using MiniAnalyzers.Roslyn.Infrastructure.Common;
+
 
 namespace MiniAnalyzers.Roslyn.Analyzers;
 
@@ -36,6 +37,14 @@ public sealed class EmptyCatchBlockAnalyzer : DiagnosticAnalyzer
     private static string GetFullName(ITypeSymbol type) =>
     type.ToDisplayString();
 
+    private readonly struct KnownTypes
+    {
+        public KnownTypes(INamedTypeSymbol? operationCanceledException) =>
+            OperationCanceledException = operationCanceledException;
+
+        public INamedTypeSymbol? OperationCanceledException { get; }
+    }
+
     private static readonly DiagnosticDescriptor Rule = new(
         id: DiagnosticId,
         title: Title,
@@ -53,7 +62,7 @@ public sealed class EmptyCatchBlockAnalyzer : DiagnosticAnalyzer
     /// <para>
     /// This method configures analysis options (ignoring generated code,
     /// enabling concurrency) and registers the callbacks we want Roslyn
-    /// to invoke — in this case, for every <c>catch</c> clause.
+    /// to invoke, in this case, for every <c>catch</c> clause.
     /// </para>
     /// </summary>
     /// <param name="context">
@@ -65,21 +74,25 @@ public sealed class EmptyCatchBlockAnalyzer : DiagnosticAnalyzer
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
 
-        context.RegisterSyntaxNodeAction(AnalyzeCatchClause, SyntaxKind.CatchClause);
+        context.RegisterCompilationStartAction(startCtx =>
+        {
+            var oce = startCtx.Compilation.GetTypeByMetadataName("System.OperationCanceledException");
+            var known = new KnownTypes(oce);
+
+            startCtx.RegisterSyntaxNodeAction(ctx => AnalyzeCatchClause(ctx, known), SyntaxKind.CatchClause);
+        });
     }
 
     /// <summary>
     /// Reports a diagnostic when a catch block has no executable statements.
     /// We report on the 'catch' keyword to make the highlight obvious.
     /// </summary>
-    private static void AnalyzeCatchClause(SyntaxNodeAnalysisContext context)
+    private static void AnalyzeCatchClause(SyntaxNodeAnalysisContext context, KnownTypes known)
     {
         var clause = (CatchClauseSyntax)context.Node;
 
-        var options = MiniAnalyzers.Roslyn.Infrastructure.AnalyzerOptionExtensions
-       .GetEmptyCatchOptions(context);
+        var options = AnalyzerOptionExtensions.GetEmptyCatchOptions(context);
 
-        // A well-formed catch always has a Block. We still null-check to be safe.
         var block = clause.Block;
         if (block is null)
             return;
@@ -87,19 +100,16 @@ public sealed class EmptyCatchBlockAnalyzer : DiagnosticAnalyzer
         if (!IsEffectivelyEmpty(block, options.TreatEmptyStatementAsEmpty))
             return;
 
-        // if the catch is typed and it’s a cancellation type, skip reporting.
         if (clause.Declaration?.Type is TypeSyntax typeSyntax)
         {
-            var caught = context.SemanticModel.GetTypeInfo(typeSyntax, context.CancellationToken).Type;
+            var caughtType = context.SemanticModel.GetTypeInfo(typeSyntax, context.CancellationToken).Type;
 
-            // 1) Ignore cancellation types if configured
-            if (options.IgnoreCancellation && IsCancellationExceptionType(caught, context.SemanticModel.Compilation))
+            if (options.IgnoreCancellation && IsCancellationExceptionType(caughtType, known))
                 return;
 
-            // 2) Ignore any user-allowed types (full name match)
             if (options.AllowedExceptionTypes is { Count: > 0 } set &&
-                caught is not null &&
-                set.Contains(GetFullName(caught)))
+                caughtType is not null &&
+                set.Contains(GetFullName(caughtType)))
             {
                 return;
             }
@@ -139,15 +149,12 @@ public sealed class EmptyCatchBlockAnalyzer : DiagnosticAnalyzer
 
     // True if the caught type is OperationCanceledException or derives from it.
     // This also covers TaskCanceledException which derives from OperationCanceledException.
-    private static bool IsCancellationExceptionType(ITypeSymbol? caughtType, Compilation compilation)
+    private static bool IsCancellationExceptionType(ITypeSymbol? caughtType, in KnownTypes known)
     {
-        if (caughtType is null)
+        if (caughtType is null || known.OperationCanceledException is null)
             return false;
 
-        var oce = compilation.GetTypeByMetadataName("System.OperationCanceledException");
-        if (oce is null)
-            return false;
-
+        var oce = known.OperationCanceledException;
         return SymbolEqualityComparer.Default.Equals(caughtType, oce) || DerivesFrom(caughtType, oce);
     }
 

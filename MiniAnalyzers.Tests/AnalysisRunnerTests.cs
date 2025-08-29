@@ -75,17 +75,17 @@ public class AnalysisRunnerTests
         if (!MSBuildLocator.IsRegistered) MSBuildLocator.RegisterDefaults();
 
         var projectPath = Path.Combine(RepoRoot(), "Samples", "WeakVarForeach_On", "WeakVarForeach_On.csproj");
-        using var ws = MSBuildWorkspace.Create();
-        var project = await ws.OpenProjectAsync(projectPath);
+        using var workSpace = MSBuildWorkspace.Create();
+        var project = await workSpace.OpenProjectAsync(projectPath);
         var compilation = await project.GetCompilationAsync();
         var tree = compilation!.SyntaxTrees.Single(t => Path.GetFileName(t.FilePath) == "Program.cs");
 
-        var o = project.AnalyzerOptions.AnalyzerConfigOptionsProvider.GetOptions(tree);
+        var options = project.AnalyzerOptions.AnalyzerConfigOptionsProvider.GetOptions(tree);
 
-        Assert.IsTrue(o.TryGetValue("dotnet_diagnostic.MNA0004.min_length", out var min) && min == "4");
-        Assert.IsTrue(o.TryGetValue("dotnet_diagnostic.MNA0004.allowed_names", out var allowed) && allowed.Contains("id"));
-        Assert.IsTrue(o.TryGetValue("dotnet_diagnostic.MNA0004.weak_names", out var weak) && weak.Contains("foo"));
-        Assert.IsTrue(o.TryGetValue("dotnet_diagnostic.MNA0004.check_foreach", out var cf) && cf.ToLowerInvariant() == "true");
+        Assert.IsTrue(options.TryGetValue("dotnet_diagnostic.MNA0004.min_length", out var min) && min == "4");
+        Assert.IsTrue(options.TryGetValue("dotnet_diagnostic.MNA0004.allowed_names", out var allowed) && allowed.Contains("id"));
+        Assert.IsTrue(options.TryGetValue("dotnet_diagnostic.MNA0004.weak_names", out var weak) && weak.Contains("foo"));
+        Assert.IsTrue(options.TryGetValue("dotnet_diagnostic.MNA0004.check_foreach", out var checkForeach) && checkForeach.ToLowerInvariant() == "true");
     }
 
     [TestMethod]
@@ -96,7 +96,7 @@ public class AnalysisRunnerTests
         var analyzers = new DiagnosticAnalyzer[] { new WeakVariableNameAnalyzer() };
 
         var results = await AnalysisRunner.AnalyzeProjectAsync(project, analyzers);
-        var count = results.Count(r => r.Id == WeakVariableNameAnalyzer.DiagnosticId);
+        var count = results.Count(result => result.Id == WeakVariableNameAnalyzer.DiagnosticId);
         Assert.AreEqual(expectedCount, count, $"Unexpected MNA0004 count in {sample}.");
     }
 

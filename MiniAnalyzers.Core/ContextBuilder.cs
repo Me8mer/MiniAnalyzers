@@ -1,9 +1,6 @@
 ﻿using Microsoft.CodeAnalysis;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace MiniAnalyzers.Core;
 
@@ -38,7 +35,7 @@ internal static class ContextSnippetBuilder
         int absHlStart = location.SourceSpan.Start;
         int absHlEnd = location.SourceSpan.End;
 
-        var sb = new StringBuilder();
+        var strBuilder = new StringBuilder();
         int lineNumberWidth = (endLine + 1).ToString().Length;
 
         for (int i = startLine; i <= endLine; i++)
@@ -57,6 +54,12 @@ internal static class ContextSnippetBuilder
 
                 // Insert end first, then start, so indices stay valid.
                 lineText = lineText.Insert(relEnd, "|]").Insert(relStart, "[|");
+            }
+
+            // Expand tabs to spaces for consistent monospaced rendering in the UI.
+            if (lineText.IndexOf('\t') >= 0)
+            {
+                lineText = lineText.Replace("\t", "    ");
             }
 
             // Trim very long lines. Keep [| |] visible when present.
@@ -108,21 +111,27 @@ internal static class ContextSnippetBuilder
             }
 
             string indicator = i == lineSpan.StartLinePosition.Line ? ">" : " ";
-            sb.Append((i + 1).ToString().PadLeft(lineNumberWidth))
+            strBuilder.Append((i + 1).ToString().PadLeft(lineNumberWidth))
               .Append(' ')
               .Append(indicator)
               .Append(' ')
               .AppendLine(lineText);
 
-            // Early stop if we built enough content.
-            if (sb.Length > MaxSnippetChars)
+            // ct check
+            if ((i - startLine) % 32 == 0 && ct.IsCancellationRequested)
             {
-                sb.AppendLine("… [truncated]");
+                strBuilder.AppendLine("… [truncated]");
+                break;
+            }
+            // Early stop if we built enough content.
+            if (strBuilder.Length > MaxSnippetChars)
+            {
+                strBuilder.AppendLine("… [truncated]");
                 break; // explicit so there is no “empty body” confusion
             }
         }
 
-        var result = sb.ToString();
+        var result = strBuilder.ToString();
         if (result.Length > MaxSnippetChars)
             result = result.Substring(0, MaxSnippetChars) + Environment.NewLine + "… [truncated]";
 

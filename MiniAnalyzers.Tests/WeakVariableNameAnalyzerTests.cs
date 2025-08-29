@@ -289,14 +289,14 @@ public sealed class WeakVariableNameAnalyzerTests
 
     [TestMethod]
     [DataRow("tmp", "val")]
-    public async Task Flags_DeconstructionVariable_Local(string n1, string n2)
+    public async Task Flags_DeconstructionVariable_Local(string testItem1, string testItem2)
     {
         var code = $@"
         class C
         {{
             void M()
             {{
-                var ([|{n1}|], [|{n2}|]) = (1, 2);
+                var ([|{testItem1}|], [|{testItem2}|]) = (1, 2);
             }}
         }}";
         await CSharpAnalyzerVerifier<WeakVariableNameAnalyzer>.VerifyAnalyzerAsync(code);
@@ -304,14 +304,14 @@ public sealed class WeakVariableNameAnalyzerTests
 
     [TestMethod]
     [DataRow("tmp", "val")]
-    public async Task Flags_DeconstructionVariable_Foreach(string n1, string n2)
+    public async Task Flags_DeconstructionVariable_Foreach(string testItem1, string testItem2)
     {
         var code = $@"
         class C
         {{
             void M()
             {{
-                foreach (var ([|{n1}|], [|{n2}|]) in new[] {{ (1, 2) }}) {{ }}
+                foreach (var ([|{testItem1}|], [|{testItem2}|]) in new[] {{ (1, 2) }}) {{ }}
             }}
         }}";
         await CSharpAnalyzerVerifier<WeakVariableNameAnalyzer>.VerifyAnalyzerAsync(code);
@@ -320,14 +320,14 @@ public sealed class WeakVariableNameAnalyzerTests
     [TestMethod]
     [DataRow("id", "ct")]
     [DataRow("ok", "db")]
-    public async Task DoesNotFlag_AllowedDeconstructionVariables(string n1, string n2)
+    public async Task DoesNotFlag_AllowedDeconstructionVariables(string testItem1, string testItem2)
     {
         var code = $@"
         class C
         {{
             void M()
             {{
-                var ({n1}, {n2}) = (1, 2);
+                var ({testItem1}, {testItem2}) = (1, 2);
             }}
         }}";
         await CSharpAnalyzerVerifier<WeakVariableNameAnalyzer>.VerifyAnalyzerAsync(code);
@@ -357,16 +357,16 @@ public sealed class WeakVariableNameAnalyzerTests
     [TestMethod]
     [DataRow("a", "b1", "tmp", "val")]
     [DataRow("x", "y1", "foo", "bar")]
-    public async Task Flags_Complex_Locals_Pattern_Deconstruction(string n1, string n2, string n3, string n4)
+    public async Task Flags_Complex_Locals_Pattern_Deconstruction(string testItem1, string testItem2, string testItem3, string testItem4)
     {
         var code = $@"
         class C
         {{
             void M(object input)
             {{
-                int [|{n1}|] = 0, [|{n2}|] = 1, count = 2;
-                if (input is int [|{n3}|]) {{ }}
-                var ([|{n4}|], good) = (1, 2);
+                int [|{testItem1}|] = 0, [|{testItem2}|] = 1, count = 2;
+                if (input is int [|{testItem3}|]) {{ }}
+                var ([|{testItem4}|], good) = (1, 2);
             }}
         }}";
 
@@ -379,14 +379,14 @@ public sealed class WeakVariableNameAnalyzerTests
     [DataRow("tmp", "val", "a", "b1")]
     [DataRow("foo", "bar", "x", "y1")]
     [DataRow("obj", "data", "aa", "zz")]
-    public async Task Flags_Complex_Fields_And_Parameters(string f1, string f2, string p1, string p2)
+    public async Task Flags_Complex_Fields_And_Parameters(string flag1, string flag2, string param1, string param2)
     {
         var code = $@"
         class C
         {{
-            private int [|{f1}|], id, [|{f2}|];
+            private int [|{flag1}|], id, [|{flag2}|];
 
-            void M(int [|{p1}|], int id, int [|{p2}|]) {{ }}
+            void M(int [|{param1}|], int id, int [|{param2}|]) {{ }}
         }}";
 
         await CSharpAnalyzerVerifier<WeakVariableNameAnalyzer>.VerifyAnalyzerAsync(code);

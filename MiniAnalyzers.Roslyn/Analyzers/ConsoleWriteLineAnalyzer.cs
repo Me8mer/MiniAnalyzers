@@ -1,13 +1,12 @@
-﻿using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
+﻿using System;
+using System.Collections.Immutable;
+using System.Linq;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
-using MiniAnalyzers.Roslyn.Infrastructure;
-using System;
-using System.Collections.Immutable;
-using System.Linq;
-
+using MiniAnalyzers.Roslyn.Infrastructure.Common;
+using MiniAnalyzers.Roslyn.Infrastructure.Options.ConsoleWrite;
 namespace MiniAnalyzers.Roslyn.Analyzers;
 
 /// <summary>
@@ -101,10 +100,10 @@ public sealed class ConsoleWriteLineAnalyzer : DiagnosticAnalyzer
 
     private static void AnalyzeInvocation(OperationAnalysisContext context)
     {
-        var op = (IInvocationOperation)context.Operation;
+        var operation = (IInvocationOperation)context.Operation;
 
         // Quick check. We only care about methods named WriteLine and Write.
-        if (op.TargetMethod.Name != "WriteLine" && op.TargetMethod.Name != "Write")
+        if (operation.TargetMethod.Name != "WriteLine" && operation.TargetMethod.Name != "Write")
             return;
 
         // Resolve System.Console and compare the containing type precisely.
@@ -112,22 +111,22 @@ public sealed class ConsoleWriteLineAnalyzer : DiagnosticAnalyzer
         if (consoleType is null)
             return;
 
-        if (!SymbolEqualityComparer.Default.Equals(op.TargetMethod.ContainingType, consoleType))
+        if (!SymbolEqualityComparer.Default.Equals(operation.TargetMethod.ContainingType, consoleType))
             return;
 
         var options = context.GetConsoleWriteOptions();
 
-        if (options.AllowInTopLevel && IsInTopLevel(op.Syntax))
+        if (options.AllowInTopLevel && IsInTopLevel(operation.Syntax))
             return;
 
-        if (options.AllowInTests && IsInTestContext(op))
+        if (options.AllowInTests && IsInTestContext(operation))
             return;
 
-        if (TryReportMissingPrefix(context, op, options))
+        if (TryReportMissingPrefix(context, operation, options))
             return;
 
         // Report at the identifier 'WriteLine' when possible for a precise highlight.
-        var location = GetNameLocation(op) ?? op.Syntax.GetLocation();
+        var location = GetNameLocation(operation) ?? operation.Syntax.GetLocation();
 
         context.ReportDiagnostic(Diagnostic.Create(Rule, location, properties: RecommendationProps));
     }
@@ -136,15 +135,15 @@ public sealed class ConsoleWriteLineAnalyzer : DiagnosticAnalyzer
 
     // Minimal heuristic for tests: attributes like [TestMethod], [Fact], [Theory], [Test], class fixture markers,
     // or a file path that contains "Tests".
-    private static bool IsInTestContext(IInvocationOperation op)
+    private static bool IsInTestContext(IInvocationOperation operation)
     {
         // file path hint
-        var path = op.Syntax.SyntaxTree?.FilePath;
+        var path = operation.Syntax.SyntaxTree?.FilePath;
         if (!string.IsNullOrEmpty(path) && path!.IndexOf("Tests", StringComparison.OrdinalIgnoreCase) >= 0)
             return true;
 
         // attribute hint on method or containing type
-        var method = op.SemanticModel?.GetEnclosingSymbol(op.Syntax.SpanStart) as IMethodSymbol;
+        var method = operation.SemanticModel?.GetEnclosingSymbol(operation.Syntax.SpanStart) as IMethodSymbol;
         if (method is null)
             return false;
 
@@ -176,9 +175,9 @@ public sealed class ConsoleWriteLineAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static Location? GetNameLocation(IInvocationOperation op)
+    private static Location? GetNameLocation(IInvocationOperation operation)
     {
-        if (op.Syntax is InvocationExpressionSyntax inv)
+        if (operation.Syntax is InvocationExpressionSyntax inv)
         {
             // Console.WriteLine(...)
             if (inv.Expression is MemberAccessExpressionSyntax member)
@@ -199,32 +198,38 @@ public sealed class ConsoleWriteLineAnalyzer : DiagnosticAnalyzer
         if (HasRequiredPrefix(invocation, options))
             return false;
 
-        var reportLocation = invocation.Arguments.Length > 0
-            ? invocation.Arguments[0].Syntax.GetLocation()
-            : (GetNameLocation(invocation) ?? invocation.Syntax.GetLocation());
+        // Prefer the actual message argument location if we can find it.
+        Location reportLocation;
+        if (TryGetMessageArgument(invocation, out var messageValue))
+        {
+            reportLocation = messageValue.Syntax.GetLocation();
+        }
+        else
+        {
+            reportLocation = GetNameLocation(invocation) ?? invocation.Syntax.GetLocation();
+        }
 
-        // Only one diagnostic per call when the prefix is required and missing.
         context.ReportDiagnostic(Diagnostic.Create(
-             RuleMissingPrefix,
-             reportLocation,
-             properties: BuildPrefixSuggestionProps(options.RequiredPrefix),
-             options.RequiredPrefix));
+            RuleMissingPrefix,
+            reportLocation,
+            properties: BuildPrefixSuggestionProps(options.RequiredPrefix),
+            options.RequiredPrefix));
+
         return true;
     }
 
 
-    private static bool HasRequiredPrefix(IInvocationOperation op, ConsoleWriteOptions options)
+    private static bool HasRequiredPrefix(IInvocationOperation operation, ConsoleWriteOptions options)
     {
-        if (op.Arguments.Length == 0)
-            return false;
+        if (!TryGetMessageArgument(operation, out var messageValue))
+            return true; // No string-like message available. Skip to avoid noise.
 
-        var value = op.Arguments[0].Value;
-        if (!TryGetLeadingText(value, out var leading))
-            return true; // not a compile-time string -> do not flag to avoid noise
+        if (!TryGetLeadingText(messageValue, out var leading))
+            return true; // Not a compile-time string. Skip to avoid noise.
 
         var comparison = options.RequiredPrefixIgnoreCase
-            ? System.StringComparison.OrdinalIgnoreCase
-            : System.StringComparison.Ordinal;
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
 
         return leading.StartsWith(options.RequiredPrefix, comparison);
     }
@@ -256,4 +261,22 @@ public sealed class ConsoleWriteLineAnalyzer : DiagnosticAnalyzer
         text = string.Empty;
         return false;
     }
+
+    private static bool TryGetMessageArgument(IInvocationOperation operation, out IOperation messageArg)
+    {
+        foreach (var argument in operation.Arguments)
+        {
+            var value = argument.Value;
+            // string literal, string variable, or interpolated string
+            if (value.Type?.SpecialType == SpecialType.System_String || value is IInterpolatedStringOperation)
+            {
+                messageArg = value;
+                return true;
+            }
+        }
+
+        messageArg = null!;
+        return false;
+    }
+
 }

@@ -4,8 +4,12 @@ using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
+using MiniAnalyzers.Roslyn.Infrastructure.Options.AsyncVoid;
+using MiniAnalyzers.Roslyn.Infrastructure.Options.ConsoleWrite;
+using MiniAnalyzers.Roslyn.Infrastructure.Options.EmptyCatch;
+using MiniAnalyzers.Roslyn.Infrastructure.Options.WeakVar;
 
-namespace MiniAnalyzers.Roslyn.Infrastructure
+namespace MiniAnalyzers.Roslyn.Infrastructure.Common
 {
     /// <summary>
     /// Generic cache: for each Compilation, keep one OptionsAccessor per schema type.

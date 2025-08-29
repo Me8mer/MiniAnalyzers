@@ -1,7 +1,7 @@
 ﻿// Roslyn/Infrastructure/WeakVarOptions.cs
 using System.Collections.Immutable;
 
-namespace MiniAnalyzers.Roslyn.Infrastructure
+namespace MiniAnalyzers.Roslyn.Infrastructure.Options.WeakVar
 {
     /// <summary>Typed options for MNA0004 (weak variable names).</summary>
     internal sealed record WeakVarOptions(
