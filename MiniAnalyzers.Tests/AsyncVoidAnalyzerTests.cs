@@ -1,7 +1,9 @@
-﻿using System.Threading.Tasks;
+﻿using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using MiniAnalyzers.Core;
 using MiniAnalyzers.Roslyn.Analyzers;
 using MiniAnalyzers.Tests.Verifiers;
+using System.Threading.Tasks;
 
 namespace MiniAnalyzers.Tests;
 
@@ -145,4 +147,7 @@ public sealed class AsyncVoidAnalyzerTests
         }";
         await CSharpAnalyzerVerifier<AsyncVoidAnalyzer>.VerifyAnalyzerAsync(code);
     }
+
+
+
 }

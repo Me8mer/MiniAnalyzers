@@ -1,0 +1,6 @@
+root = true
+
+[*.cs]
+dotnet_diagnostic.MNA0003.severity = warning
+dotnet_diagnostic.MNA0003.required_prefix = [APP]
+dotnet_diagnostic.MNA0003.required_prefix_ignore_case = true

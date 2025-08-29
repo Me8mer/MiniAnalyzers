@@ -1,0 +1,6 @@
+root = true
+
+[*.cs]
+dotnet_diagnostic.MNA0001.severity = warning
+dotnet_diagnostic.MNA0001.allow_event_handlers = false
+dotnet_diagnostic.MNA0001.check_anonymous_delegates = true

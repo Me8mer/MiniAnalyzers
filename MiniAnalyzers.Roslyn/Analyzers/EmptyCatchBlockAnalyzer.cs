@@ -32,6 +32,9 @@ public sealed class EmptyCatchBlockAnalyzer : DiagnosticAnalyzer
 
     private static readonly ImmutableDictionary<string, string?> RecommendationProps =
     ImmutableDictionary<string, string?>.Empty.Add("Suggestion", RecommendationText);
+    // "System.Threading.Tasks.TaskCanceledException"
+    private static string GetFullName(ITypeSymbol type) =>
+    type.ToDisplayString();
 
     private static readonly DiagnosticDescriptor Rule = new(
         id: DiagnosticId,
@@ -73,20 +76,33 @@ public sealed class EmptyCatchBlockAnalyzer : DiagnosticAnalyzer
     {
         var clause = (CatchClauseSyntax)context.Node;
 
+        var options = MiniAnalyzers.Roslyn.Infrastructure.AnalyzerOptionExtensions
+       .GetEmptyCatchOptions(context);
+
         // A well-formed catch always has a Block. We still null-check to be safe.
         var block = clause.Block;
         if (block is null)
             return;
 
-        if (!IsEffectivelyEmpty(block))
+        if (!IsEffectivelyEmpty(block, options.TreatEmptyStatementAsEmpty))
             return;
 
         // if the catch is typed and it’s a cancellation type, skip reporting.
         if (clause.Declaration?.Type is TypeSyntax typeSyntax)
         {
             var caught = context.SemanticModel.GetTypeInfo(typeSyntax, context.CancellationToken).Type;
-            if (IsCancellationExceptionType(caught, context.SemanticModel.Compilation))
+
+            // 1) Ignore cancellation types if configured
+            if (options.IgnoreCancellation && IsCancellationExceptionType(caught, context.SemanticModel.Compilation))
                 return;
+
+            // 2) Ignore any user-allowed types (full name match)
+            if (options.AllowedExceptionTypes is { Count: > 0 } set &&
+                caught is not null &&
+                set.Contains(GetFullName(caught)))
+            {
+                return;
+            }
         }
 
         var location = clause.CatchKeyword.GetLocation();
@@ -94,24 +110,20 @@ public sealed class EmptyCatchBlockAnalyzer : DiagnosticAnalyzer
     }
 
     //helper to decide “effective emptiness”.
-    private static bool IsEffectivelyEmpty(BlockSyntax block)
+    private static bool IsEffectivelyEmpty(BlockSyntax block, bool treatEmptyStatementAsEmpty)
     {
-    // Empty: zero statements.
-    if (block.Statements.Count == 0)
-    {
-        return true;
-    }
+        if (block.Statements.Count == 0)
+            return true;
 
-    // Also treat lone semicolons (EmptyStatementSyntax) as empty.
-    foreach (var statement in block.Statements)
-    {
-        if (statement is not EmptyStatementSyntax)
-        {
+        if (!treatEmptyStatementAsEmpty)
             return false;
-        }
-    }
 
-    return true;
+        foreach (var statement in block.Statements)
+        {
+            if (statement is not EmptyStatementSyntax)
+                return false;
+        }
+        return true;
     }
 
     // Simple inheritance walk used by the cancellation check.

@@ -49,5 +49,41 @@ namespace MiniAnalyzers.Roslyn.Infrastructure
 
             return accessor.ForSymbol(context);
         }
+        public static AsyncVoidOptions GetAsyncVoidOptions(this in SyntaxNodeAnalysisContext context)
+        {
+            var accessor = OptionAccessorCache.Get<AsyncVoidOptions, AsyncVoidOptionsSchema>(
+                context.SemanticModel.Compilation,
+                context.Options.AnalyzerConfigOptionsProvider);
+
+            return accessor.ForTree(context.Node.SyntaxTree);
+        }
+
+        public static AsyncVoidOptions GetAsyncVoidOptions(this in OperationAnalysisContext context)
+        {
+            var accessor = OptionAccessorCache.Get<AsyncVoidOptions, AsyncVoidOptionsSchema>(
+                context.Compilation,
+                context.Options.AnalyzerConfigOptionsProvider);
+
+            return accessor.ForTree(context.Operation.Syntax.SyntaxTree);
+        }
+
+        public static ConsoleWriteOptions GetConsoleWriteOptions(this in OperationAnalysisContext context)
+        {
+            var accessor = OptionAccessorCache.Get<ConsoleWriteOptions, ConsoleWriteOptionsSchema>(
+                context.Compilation,
+                context.Options.AnalyzerConfigOptionsProvider);
+
+            return accessor.ForTree(context.Operation.Syntax.SyntaxTree);
+        }
+
+        public static EmptyCatchOptions GetEmptyCatchOptions(this in SyntaxNodeAnalysisContext context)
+        {
+            var accessor = OptionAccessorCache.Get<EmptyCatchOptions, EmptyCatchOptionsSchema>(
+                context.SemanticModel.Compilation,
+                context.Options.AnalyzerConfigOptionsProvider);
+
+            return accessor.ForTree(context.Node.SyntaxTree);
+        }
     }
+
 }

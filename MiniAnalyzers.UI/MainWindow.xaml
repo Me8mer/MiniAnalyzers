@@ -2,50 +2,80 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Mini Analyzers" Height="520" Width="960">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="DarkTheme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
 
-    <DockPanel>
+    <DockPanel Background="#1E1E1E" TextElement.Foreground="White">
         <!-- Top menu bar -->
-        <Menu DockPanel.Dock="Top">
-            <MenuItem Header="_File">
-                <MenuItem Header="E_xit" Click="Exit_Click"/>
+        <Menu DockPanel.Dock="Top"
+              Background="#1E1E1E" TextElement.Foreground="White">
+            <MenuItem Header="_File"
+                      Background="#2F2F2F">
+                <MenuItem Header="E_xit" Click="Exit_Click" Background="#2F2F2F"/>
             </MenuItem>
-            <MenuItem Header="_Tools">
-                <MenuItem Header="_Settings" Click="Settings_Click"/>
+            <MenuItem Header="_Tools"
+                      Background="#2F2F2F">
+                <MenuItem Header="_Settings" Click="Settings_Click" Background="#2F2F2F" />
             </MenuItem>
         </Menu>
-        <Grid Margin="12">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-        </Grid.RowDefinitions>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="Auto"/>
-            <ColumnDefinition Width="Auto"/>
-            <ColumnDefinition Width="Auto"/>
-        </Grid.ColumnDefinitions>
+        <Grid Margin="12" Background="{StaticResource Brush.Background}" TextElement.Foreground="White">
 
-        <!-- Path box + buttons -->
-        <TextBox x:Name="txtPath" Grid.Row="0" Grid.Column="0" Margin="0,0,8,8"
-             ToolTip="Path to .sln or .csproj" />
-        <Button x:Name="btnBrowse" Grid.Row="0" Grid.Column="1" Margin="0,0,8,8" Padding="12,4"
-            Click="Browse_Click">Browse…</Button>
-        <Button x:Name="btnAnalyze" Grid.Row="0" Grid.Column="2" Margin="0,0,0,8" Padding="12,4"
-            Click="Analyze_Click">Analyze</Button>
-        <Button x:Name="btnCancel" Grid.Row="0" Grid.Column="3" Margin="8,0,0,8" Padding="12,4"
-        Click="Cancel_Click" IsEnabled="False">Cancel</Button>
+                <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="32*"/>
+                <RowDefinition Height="69*"/>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
 
-        <!-- Status line -->
-        <TextBlock x:Name="txtStatus" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="4" Margin="0,0,0,8"
-               Foreground="Gray" />
+            <!-- Path box + buttons -->
+            <TextBox x:Name="txtPath" Grid.Row="0" Grid.Column="0" Margin="0,0,8,8"
+             ToolTip="Path to .sln or .csproj"
+                      Background="{StaticResource Brush.Panel}"
+                      BorderBrush="{StaticResource Brush.Border}"
+                      Foreground="{StaticResource Brush.Foreground}"/>
+            <Button x:Name="btnBrowse"
+        Grid.Row="0" Grid.Column="1"
+        Style="{StaticResource PrimaryButton}"
+        Click="Browse_Click">Browse…</Button>
 
-        <!-- Results table -->
-            <DataGrid x:Name="grid" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="4"
-              AutoGenerateColumns="False" IsReadOnly="True"
-              ItemsSource="{Binding Results}"
-              RowDetailsVisibilityMode="Collapsed"
-              MouseDoubleClick="grid_MouseDoubleClick">
+            <Button x:Name="btnAnalyze"
+        Grid.Row="0" Grid.Column="2"
+        Style="{StaticResource PrimaryButton}"
+        Margin="0,0,8,8"
+        Click="Analyze_Click">Analyze</Button>
+
+            <Button x:Name="btnCancel"
+        Grid.Row="0" Grid.Column="3"
+        Style="{StaticResource ToolbarButton}"
+        Margin="0,0,0,8"
+        Click="Cancel_Click"
+        IsEnabled="False">Cancel</Button>
+            <!-- Status line -->
+            <TextBlock x:Name="txtStatus"
+           Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="4"
+           Margin="0,0,0,8"
+           Foreground="Gray"/>
+
+            <!-- Results table -->
+            <DataGrid x:Name="grid"
+          Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="4"
+          AutoGenerateColumns="False"
+          IsReadOnly="True"
+          ItemsSource="{Binding Results}"
+          RowDetailsVisibilityMode="Collapsed"
+          MouseDoubleClick="grid_MouseDoubleClick"
+          Grid.RowSpan="2">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Project" Binding="{Binding ProjectName}" Width="*" />
                     <DataGridTextColumn Header="Id"      Binding="{Binding Id}"          Width="100" />
@@ -65,26 +95,27 @@
                             <TextBlock Text="{Binding Suggestion}"
                                TextWrapping="Wrap"
                                MaxWidth="650"
-                               Margin="0,0,0,8"/>   
+                               Margin="0,0,0,8"/>
                             <Border Margin="4" Padding="8" BorderThickness="1"
-                                        BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}">
+                                    BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}">
                                 <ScrollViewer HorizontalScrollBarVisibility="Auto"
                                               VerticalScrollBarVisibility="Auto">
                                     <TextBox Text="{Binding ContextSnippet}"
-                                         FontFamily="Consolas"
-                                         FontSize="12"
-                                         IsReadOnly="True"
-                                         TextWrapping="NoWrap"
-                                         Background="{x:Null}"
-                                         BorderThickness="0"/>
+                                             Style="{StaticResource CodeMonoText}"
+                                             FontFamily="Consolas"
+                                             FontSize="12"
+                                             IsReadOnly="True"
+                                             TextWrapping="NoWrap"
+                                             Background="{x:Null}"
+                                             BorderThickness="0"/>
                                 </ScrollViewer>
                             </Border>
                         </StackPanel>
                     </DataTemplate>
-                
+
 
                 </DataGrid.RowDetailsTemplate>
-        </DataGrid>
+            </DataGrid>
         </Grid>
     </DockPanel>
 

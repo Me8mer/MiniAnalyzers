@@ -17,7 +17,8 @@ class C
 {
     void M()
     {
-        Console.[|WriteLine|](""hello"");
+        Console.{|MNA0003:WriteLine|}(""hello"");
+
     }
 }";
         await CSharpAnalyzerVerifier<ConsoleWriteLineAnalyzer>.VerifyAnalyzerAsync(code);
@@ -31,7 +32,8 @@ class C
 {
     void M()
     {
-        System.Console.[|WriteLine|]();
+        System.Console.{|MNA0003:WriteLine|}();
+
     }
 }";
         await CSharpAnalyzerVerifier<ConsoleWriteLineAnalyzer>.VerifyAnalyzerAsync(code);
@@ -46,7 +48,7 @@ class C
 {
     void M()
     {
-        ConsoleAlias.[|WriteLine|](""x"");
+        ConsoleAlias.{|MNA0003:WriteLine|}(""x"");
     }
 }";
         await CSharpAnalyzerVerifier<ConsoleWriteLineAnalyzer>.VerifyAnalyzerAsync(code);
@@ -90,7 +92,7 @@ class C
 {
     void M()
     {
-        Console.[|Write|](""hello"");
+        Console.{|MNA0003:Write|}(""hello"");
     }
 }";
         await CSharpAnalyzerVerifier<ConsoleWriteLineAnalyzer>.VerifyAnalyzerAsync(code);
@@ -104,7 +106,8 @@ class C
 {
     void M()
     {
-        System.Console.[|Write|](""x"");
+        System.Console.{|MNA0003:Write|}(""x"");
+
     }
 }";
         await CSharpAnalyzerVerifier<ConsoleWriteLineAnalyzer>.VerifyAnalyzerAsync(code);
@@ -119,8 +122,8 @@ class C
 {
     void M()
     {
-        [|Write|](""a"");
-        [|WriteLine|](""b"");
+        {|MNA0003:Write|}(""a"");
+        {|MNA0003:WriteLine|}(""b"");
     }
 }";
         await CSharpAnalyzerVerifier<ConsoleWriteLineAnalyzer>.VerifyAnalyzerAsync(code);

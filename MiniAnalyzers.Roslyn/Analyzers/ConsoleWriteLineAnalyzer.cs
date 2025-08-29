@@ -1,8 +1,12 @@
 ﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
+using MiniAnalyzers.Roslyn.Infrastructure;
+using System;
 using System.Collections.Immutable;
+using System.Linq;
 
 namespace MiniAnalyzers.Roslyn.Analyzers;
 
@@ -17,16 +21,27 @@ public sealed class ConsoleWriteLineAnalyzer : DiagnosticAnalyzer
     /// <summary>Keep IDs stable and consistent with numbering.</summary>
     public const string DiagnosticId = "MNA0003";
 
+    /// <summary>Keep IDs stable and consistent with numbering.</summary>
+    public const string DiagnosticIdA = "MNA0003A";
+
     private const string Category = "Maintainability";
 
     private static readonly LocalizableString Title =
         "Avoid Console.Write/WriteLine in production code";
+    private static readonly LocalizableString TitleA =
+        "Console message should start with the required prefix";
 
     private static readonly LocalizableString MessageFormat =
         "Replace Console.Write/WriteLine with a logging framework";
 
+    private static readonly LocalizableString MessageFormatA =
+       "Console message should start with '{0}'";
+
     private static readonly LocalizableString Description =
         "Console I/O is brittle for diagnostics. Use a structured logging framework that supports levels, sinks, and configuration.";
+
+    private static readonly LocalizableString DescriptionA =
+        "Project policy requires a prefix for Console output to aid log filtering.";
 
     private const string RecommendationText =
     "Replace Console.Write/WriteLine with a logging API. Prefer ILogger or Debug.WriteLine for diagnostics.";
@@ -44,9 +59,18 @@ public sealed class ConsoleWriteLineAnalyzer : DiagnosticAnalyzer
         isEnabledByDefault: true,
         description: Description);
 
+    private static readonly DiagnosticDescriptor RuleMissingPrefix = new(
+        id: DiagnosticIdA,
+        title:TitleA,
+        messageFormat: MessageFormatA,
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Warning,
+        isEnabledByDefault: true,
+        description: DescriptionA);
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-        ImmutableArray.Create(Rule);
+       ImmutableArray.Create(Rule, RuleMissingPrefix);
 
     /// <summary>
     /// Registers operation analysis for invocations of <c>System.Console.Write</c>/<c>WriteLine</c>.
@@ -79,10 +103,65 @@ public sealed class ConsoleWriteLineAnalyzer : DiagnosticAnalyzer
         if (!SymbolEqualityComparer.Default.Equals(op.TargetMethod.ContainingType, consoleType))
             return;
 
+        var options = context.GetConsoleWriteOptions();
+
+        if (options.AllowInTopLevel && IsInTopLevel(op.Syntax))
+            return;
+
+        if (options.AllowInTests && IsInTestContext(op))
+            return;
+
+        if (TryReportMissingPrefix(context, op, options))
+            return;
+
         // Report at the identifier 'WriteLine' when possible for a precise highlight.
         var location = GetNameLocation(op) ?? op.Syntax.GetLocation();
 
         context.ReportDiagnostic(Diagnostic.Create(Rule, location, properties: RecommendationProps));
+    }
+    private static bool IsInTopLevel(SyntaxNode node) =>
+    node.AncestorsAndSelf().Any(n => n is GlobalStatementSyntax);
+
+    // Minimal heuristic for tests: attributes like [TestMethod], [Fact], [Theory], [Test], class fixture markers,
+    // or a file path that contains "Tests".
+    private static bool IsInTestContext(IInvocationOperation op)
+    {
+        // file path hint
+        var path = op.Syntax.SyntaxTree?.FilePath;
+        if (!string.IsNullOrEmpty(path) && path.IndexOf("Tests", StringComparison.OrdinalIgnoreCase) >= 0)
+            return true;
+
+        // attribute hint on method or containing type
+        var method = op.SemanticModel?.GetEnclosingSymbol(op.Syntax.SpanStart) as IMethodSymbol;
+        if (method is null)
+            return false;
+
+        static bool HasTestAttribute(ImmutableArray<AttributeData> attrs)
+        {
+            foreach (var a in attrs)
+            {
+                var name = a.AttributeClass?.Name;
+                if (name is null) continue;
+                if (name is "TestMethodAttribute" or "TestClassAttribute" // MSTest
+                    or "FactAttribute" or "TheoryAttribute"              // xUnit
+                    or "TestAttribute" or "TestCaseAttribute"            // NUnit
+                    or "TestFixtureAttribute")
+                    return true;
+            }
+            return false;
+        }
+
+        if (HasTestAttribute(method.GetAttributes()))
+            return true;
+
+        var containing = method.ContainingType;
+        while (containing is not null)
+        {
+            if (HasTestAttribute(containing.GetAttributes()))
+                return true;
+            containing = containing.ContainingType;
+        }
+        return false;
     }
 
     private static Location? GetNameLocation(IInvocationOperation op)
@@ -98,5 +177,67 @@ public sealed class ConsoleWriteLineAnalyzer : DiagnosticAnalyzer
                 return id.GetLocation();
         }
         return null;
+    }
+
+    private static bool TryReportMissingPrefix(OperationAnalysisContext context, IInvocationOperation invocation, ConsoleWriteOptions options)
+    {
+        if (string.IsNullOrEmpty(options.RequiredPrefix))
+            return false;
+
+        if (HasRequiredPrefix(invocation, options))
+            return false;
+
+        var reportLocation = invocation.Arguments.Length > 0
+            ? invocation.Arguments[0].Syntax.GetLocation()
+            : (GetNameLocation(invocation) ?? invocation.Syntax.GetLocation());
+
+        // Only one diagnostic per call when the prefix is required and missing.
+        context.ReportDiagnostic(Diagnostic.Create(RuleMissingPrefix, reportLocation, options.RequiredPrefix));
+        return true;
+    }
+
+
+    private static bool HasRequiredPrefix(IInvocationOperation op, ConsoleWriteOptions options)
+    {
+        if (op.Arguments.Length == 0)
+            return false;
+
+        var value = op.Arguments[0].Value;
+        if (!TryGetLeadingText(value, out var leading))
+            return true; // not a compile-time string -> do not flag to avoid noise
+
+        var comparison = options.RequiredPrefixIgnoreCase
+            ? System.StringComparison.OrdinalIgnoreCase
+            : System.StringComparison.Ordinal;
+
+        return leading.StartsWith(options.RequiredPrefix, comparison);
+    }
+
+    private static bool TryGetLeadingText(IOperation valueOperation, out string text)
+    {
+        // Case 1: "literal"
+        if (valueOperation is ILiteralOperation literal &&
+            literal.ConstantValue.HasValue &&
+            literal.ConstantValue.Value is string literalText)
+        {
+            text = literalText;
+            return true;
+        }
+
+        // Case 2: $"text{expr}" – use only the first text chunk
+        if (valueOperation is IInterpolatedStringOperation interpolated &&
+            interpolated.Parts.Length > 0 &&
+            interpolated.Parts[0] is IInterpolatedStringTextOperation textOp &&
+            textOp.Text is ILiteralOperation textLiteral &&
+            textLiteral.ConstantValue.HasValue &&
+            textLiteral.ConstantValue.Value is string firstChunk)
+        {
+            text = firstChunk;
+            return true;
+        }
+
+        // Not a compile-time string with a leading text segment – skip to avoid noise
+        text = string.Empty;
+        return false;
     }
 }

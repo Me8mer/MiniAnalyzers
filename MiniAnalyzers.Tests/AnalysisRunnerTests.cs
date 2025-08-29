@@ -68,17 +68,6 @@ public class AnalysisRunnerTests
         Assert.AreEqual(1, count, "Expected exactly one MNA0002 in EmptyCatchProject.");
     }
 
-    //[TestMethod]
-    //[DataRow("WeakVarForeach_Off", 0)]  // foreach checks disabled
-    //public async Task WeakVar_Foreach_Toggle(string sample, int expectedCount)
-    //{
-    //    var project = Path.Combine(RepoRoot(), "Samples", sample, $"{sample}.csproj");
-    //    var analyzers = new DiagnosticAnalyzer[] { new WeakVariableNameAnalyzer() };
-
-    //    var results = await AnalysisRunner.AnalyzeProjectAsync(project, analyzers);
-    //    var count = results.Count(r => r.Id == WeakVariableNameAnalyzer.DiagnosticId);
-    //    Assert.AreEqual(expectedCount, count, $"Unexpected MNA0004 count in {sample}.");
-    //}
 
     [TestMethod]
     public async Task MNA0004_AllKeys_Visible()
@@ -150,5 +139,49 @@ public class AnalysisRunnerTests
         var count = results.Count(r => r.Id == diagnosticId);
         Assert.AreEqual(expectedCount, count, $"Unexpected count for {diagnosticId}.");
     }
+    [TestMethod]
+    [DataRow("AsyncVoidProject", 1)]
+    public async Task AsyncVoid_EventHandler_Toggle_By_EditorConfig(string sample, int expectedCount)
+    {
+        var project = Path.Combine(RepoRoot(), "Samples", sample, $"{sample}.csproj");
+        var analyzers = new DiagnosticAnalyzer[] { new AsyncVoidAnalyzer() };
+
+        var results = await AnalysisRunner.AnalyzeProjectAsync(project, analyzers);
+        var count = results.Count(r => r.Id == AsyncVoidAnalyzer.DiagnosticId);
+
+        Assert.AreEqual(expectedCount, count, $"Unexpected {AsyncVoidAnalyzer.DiagnosticId} count in {sample}.");
+    }
+
+
+    [TestMethod]
+    [DataRow("MNA0003A", 1)] // one missing-prefix warning
+    [DataRow("MNA0003", 1)] // one general Console.Write* warning
+    public async Task ConsoleWrite_RequiredPrefix_Project_WithFixedEditorConfig(string diagnosticId, int expectedCount)
+    {
+        var projectPath = Path.Combine(RepoRoot(), "Samples", "ConsolePrefixProject", "ConsolePrefixProject.csproj");
+        var analyzers = new DiagnosticAnalyzer[] { new ConsoleWriteLineAnalyzer() };
+
+        var diagnostics = await AnalysisRunner.AnalyzeProjectAsync(projectPath, analyzers);
+        var count = diagnostics.Count(d => d.Id == diagnosticId);
+
+        Assert.AreEqual(expectedCount, count, $"Unexpected {diagnosticId} count in ConsolePrefixProject.");
+    }
+
+    [TestMethod]
+    public async Task EmptyCatch_ErrorSeverity_Project_HasExactlyOneError()
+    {
+        var projectPath = Path.Combine(RepoRoot(), "Samples", "EmptyCatch_ErrorSeverity", "EmptyCatch_ErrorSeverity.csproj");
+        var analyzers = new DiagnosticAnalyzer[] { new EmptyCatchBlockAnalyzer() };
+
+        var results = await AnalysisRunner.AnalyzeProjectAsync(projectPath, analyzers);
+
+        // Exactly one MNA0002 expected
+        var mna2 = results.Where(r => r.Id == EmptyCatchBlockAnalyzer.DiagnosticId).ToList();
+        Assert.AreEqual(1, mna2.Count, "Expected exactly one MNA0002 in EmptyCatch_ErrorSeverity.");
+
+        // And its severity should reflect the .editorconfig override
+        Assert.AreEqual("Error", mna2[0].Severity, "Expected MNA0002 severity to be Error via .editorconfig override.");
+    }
+
 
 }

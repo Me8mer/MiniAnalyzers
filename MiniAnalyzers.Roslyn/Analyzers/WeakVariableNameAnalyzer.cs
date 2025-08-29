@@ -234,7 +234,7 @@ public sealed class WeakVariableNameAnalyzer : DiagnosticAnalyzer
 
     private static void AnalyzeSingleDesignation(SyntaxNodeAnalysisContext context, KnownTypes known)
     {
-        var opts = context.GetWeakVarOptions();
+        var opts = context.GetOptions<WeakVarOptions, WeakVarOptionsSchema>();
         if (!opts.CheckForeach)
             return; // skip all foreach variable diagnostics if disabled
 
@@ -248,7 +248,7 @@ public sealed class WeakVariableNameAnalyzer : DiagnosticAnalyzer
     // This keeps all contexts consistent and maintains a single place to adjust behavior.
     private static void EvaluateAndReportIfWeak(SyntaxNodeAnalysisContext context, NameCandidate cand, KnownTypes known)
     {
-        var opts = context.GetWeakVarOptions();
+        var opts = context.GetOptions<WeakVarOptions, WeakVarOptionsSchema>();
 
         if (!ShouldFlagName(cand.Name, opts))
             return;
@@ -261,7 +261,7 @@ public sealed class WeakVariableNameAnalyzer : DiagnosticAnalyzer
 
     private static void EvaluateAndReportIfWeak(SymbolAnalysisContext context, NameCandidate cand, KnownTypes known)
     {
-        var opts = context.GetWeakVarOptions();
+        var opts = context.GetOptions<WeakVarOptions, WeakVarOptionsSchema>();
 
         if (!ShouldFlagName(cand.Name, opts))
             return;
@@ -289,6 +289,7 @@ public sealed class WeakVariableNameAnalyzer : DiagnosticAnalyzer
 
         // 3) length rule
         if (trimmed.Length < opts.MinLength)
+
             return true;
 
         // 4) token rule (built-in weak + .editorconfig weak)

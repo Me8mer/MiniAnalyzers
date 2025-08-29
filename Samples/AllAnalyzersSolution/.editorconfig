@@ -1,0 +1,30 @@
+root = true
+
+[*.cs]
+# Severities
+dotnet_diagnostic.MNA0001.severity = warning
+dotnet_diagnostic.MNA0002.severity = error
+dotnet_diagnostic.MNA0003A.severity = suggestion
+dotnet_diagnostic.mna0003.severity = warning
+dotnet_diagnostic.MNA0004.severity = warning
+
+# MNA0001 Async-void
+dotnet_diagnostic.MNA0001.allow_event_handlers = true
+dotnet_diagnostic.MNA0001.check_anonymous_delegates = true
+
+# MNA0002 Empty catch
+dotnet_diagnostic.MNA0002.ignore_cancellation = true
+dotnet_diagnostic.MNA0002.treat_empty_statement_as_empty = true
+# dotnet_diagnostic.MNA0002.allowed_exception_types =
+
+# MNA0003 Console writes
+dotnet_diagnostic.MNA0003.allow_in_top_level = false
+dotnet_diagnostic.MNA0003.allow_in_tests = true
+dotnet_diagnostic.MNA0003.required_prefix = [APP]
+dotnet_diagnostic.MNA0003.required_prefix_ignore_case = true
+
+# MNA0004 Weak names
+dotnet_diagnostic.MNA0004.min_length = 3
+dotnet_diagnostic.MNA0004.allowed_names = id, ct, i, j, k
+dotnet_diagnostic.MNA0004.weak_names = tmp, data, val
+dotnet_diagnostic.MNA0004.check_foreach = true

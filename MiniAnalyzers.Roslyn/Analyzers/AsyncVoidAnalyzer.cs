@@ -3,9 +3,10 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
+using MiniAnalyzers.Roslyn.Infrastructure;
+using System; 
 using System.Collections.Immutable;
 using System.Linq;
-using System; 
 
 namespace MiniAnalyzers.Roslyn.Analyzers;
 
@@ -122,10 +123,14 @@ public sealed class AsyncVoidAnalyzer : DiagnosticAnalyzer
         if (symbol.IsOverride || symbol.ExplicitInterfaceImplementations.Length > 0)
             return;
 
+        var opts = context.GetAsyncVoidOptions();
 
         // Resolve System.EventArgs once per callback
         var eventArgsSymbol = context.SemanticModel.Compilation
             .GetTypeByMetadataName("System.EventArgs");
+
+        if (opts.AllowEventHandlers && LooksLikeEventHandler(symbol, eventArgsSymbol))
+            return;
 
         // Skip common event handler pattern to reduce noise
         if (LooksLikeEventHandler(symbol, eventArgsSymbol))
@@ -169,6 +174,10 @@ public sealed class AsyncVoidAnalyzer : DiagnosticAnalyzer
     /// </summary>
     private static void AnalyzeAnonymousFunctionConversion(OperationAnalysisContext context)
     {
+        var opts = context.GetAsyncVoidOptions(); // new
+        if (!opts.CheckAnonymousDelegates)
+            return;
+
         var conv = (IConversionOperation)context.Operation;
 
         // We only care when converting *to a delegate* type that returns void => async void scenario.
@@ -190,7 +199,8 @@ public sealed class AsyncVoidAnalyzer : DiagnosticAnalyzer
 
         // Skip typical event-handler-shaped delegates: (object, EventArgs-or-derived)
         var eventArgsSymbol = context.Compilation.GetTypeByMetadataName("System.EventArgs");
-        if (LooksLikeEventHandlerDelegate(delegateType, eventArgsSymbol))
+
+        if (opts.AllowEventHandlers && LooksLikeEventHandlerDelegate(delegateType, eventArgsSymbol))
             return;
 
         var name = anon.Symbol?.Name ?? "(anonymous)";
@@ -203,6 +213,10 @@ public sealed class AsyncVoidAnalyzer : DiagnosticAnalyzer
     /// </summary>
     private static void AnalyzeAnonymousFunctionDelegateCreation(OperationAnalysisContext context)
     {
+        var opts = context.GetAsyncVoidOptions();
+        if (!opts.CheckAnonymousDelegates)
+            return;
+
         var del = (IDelegateCreationOperation)context.Operation;
 
         if (del.Type is not INamedTypeSymbol delegateType)
@@ -220,7 +234,7 @@ public sealed class AsyncVoidAnalyzer : DiagnosticAnalyzer
             return;
 
         var eventArgsSymbol = context.Compilation.GetTypeByMetadataName("System.EventArgs");
-        if (LooksLikeEventHandlerDelegate(delegateType, eventArgsSymbol))
+        if (opts.AllowEventHandlers && LooksLikeEventHandlerDelegate(delegateType, eventArgsSymbol))
             return;
 
         var name = anon.Symbol?.Name ?? "(anonymous)";

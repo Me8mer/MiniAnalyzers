@@ -1,0 +1,11 @@
+root = true
+
+[*.cs]
+# Override severity away from warning
+dotnet_diagnostic.MNA0002.severity = error
+
+# Options (wired via OptionReaders)
+dotnet_diagnostic.MNA0002.ignore_cancellation = true
+dotnet_diagnostic.MNA0002.treat_empty_statement_as_empty = true
+# You can add more types to skip if you want:
+dotnet_diagnostic.MNA0002.allowed_exception_types = System.IO.IOException

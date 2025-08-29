@@ -4,6 +4,85 @@
              xmlns:local="clr-namespace:MiniAnalyzers.UI"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-         
+        <!-- Colors -->
+        <Color x:Key="Color.Primary">#2D7DFF</Color>
+        <Color x:Key="Color.Accent">#5CDB95</Color>
+        <Color x:Key="Color.Panel">#F7F7F7</Color>
+
+        <SolidColorBrush x:Key="Brush.Primary"
+           Color="{StaticResource Color.Primary}"/>
+        <SolidColorBrush x:Key="Brush.Accent"
+           Color="{StaticResource Color.Accent}"/>
+        <SolidColorBrush x:Key="Brush.Panel"
+           Color="{StaticResource Color.Panel}"/>
+        <SolidColorBrush x:Key="Brush.RowHover"
+           Color="#EFEFEF"/>
+
+        <!-- Base font for all controls (fallback to Segoe UI if Variable is unavailable) -->
+        <Style TargetType="{x:Type Control}">
+            <Setter Property="FontFamily"
+               Value="Segoe UI Variable, Segoe UI"/>
+            <Setter Property="FontSize"
+               Value="12"/>
+        </Style>
+
+        <!-- Text elements inside FlowDocuments, etc. -->
+        <Style TargetType="{x:Type TextElement}">
+            <Setter Property="FontFamily"
+               Value="Segoe UI Variable, Segoe UI"/>
+        </Style>
+
+        <!-- Headers: slightly larger + semibold -->
+        <Style x:Key="HeaderText"
+           TargetType="{x:Type TextBlock}">
+            <Setter Property="FontSize"
+               Value="16"/>
+            <Setter Property="FontWeight"
+               Value="SemiBold"/>
+            <Setter Property="Margin"
+               Value="0,0,0,6"/>
+        </Style>
+
+        <!-- Monospaced code blocks (used in row details) -->
+        <Style x:Key="CodeMonoText"
+           TargetType="{x:Type TextBox}">
+            <Setter Property="FontFamily"
+               Value="Cascadia Code, Consolas"/>
+            <Setter Property="FontSize"
+               Value="12"/>
+            <Setter Property="IsReadOnly"
+               Value="True"/>
+            <Setter Property="TextWrapping"
+               Value="NoWrap"/>
+            <Setter Property="Background"
+               Value="{x:Null}"/>
+            <Setter Property="BorderThickness"
+               Value="0"/>
+        </Style>
+
+        <!-- Gentle DataGrid polish -->
+        <Style TargetType="{x:Type DataGrid}">
+            <Setter Property="AlternationCount"
+               Value="2"/>
+            <Setter Property="AlternatingRowBackground"
+               Value="#F3F3F3"/>
+            <Setter Property="GridLinesVisibility"
+               Value="None"/>
+            <Setter Property="RowHeaderWidth"
+               Value="0"/>
+        </Style>
+
+        <Style TargetType="{x:Type DataGridRow}">
+            <Setter Property="Margin"
+               Value="0,1,0,1"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver"
+                   Value="True">
+                    <Setter Property="Background"
+                       Value="{StaticResource Brush.RowHover}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
     </Application.Resources>
 </Application>
