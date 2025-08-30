@@ -1,0 +1,53 @@
+{
+  "$schema": "https://raw.githubusercontent.com/dotnet/docfx/main/schemas/docfx.schema.json",
+  "metadata": [
+    {
+      "src": [
+        {
+          "src": "../.",
+          "files": [
+            "MiniAnalyzers.sln"
+          ]
+        }
+      ],
+      "dest": "api"
+    }
+  ],
+  "pdf": {
+    "content": [
+      {
+        "files": [
+          "index.md",
+          "toc.json",
+          "api/**.yml",
+          "api/**.md",
+          "api/toc.yml"
+        ]
+      }
+    ],
+    "dest": "_pdf"
+  },
+  "build": {
+    "content": [
+      {
+        "files": [
+          "**/*.{md,yml}"
+        ],
+        "exclude": [
+          "_site/**"
+        ]
+      }
+    ],
+    "output": "_site",
+    "template": [
+      "default",
+      "modern"
+    ],
+    "globalMetadata": {
+      "_appName": "MiniAnalyzers",
+      "_appTitle": "MiniAnalyzers",
+      "_enableSearch": true,
+      "pdf": true
+    }
+  }
+}
