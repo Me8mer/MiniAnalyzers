@@ -359,9 +359,7 @@ public sealed class WeakVariableNameAnalyzer : DiagnosticAnalyzer
             return "Rename to a boolean-style name starting with 'is', 'has', or 'can'.";
 
         if (IsCollectionType(type, known.IEnumerableT))
-            return "Rename to a plural name that reflects multiple 
-                
-                .";
+            return "Rename to a plural name that reflects multiple items.";
 
         return "Rename to a descriptive name that reflects the variable's purpose.";
     }

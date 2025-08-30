@@ -34,6 +34,7 @@ Small but practical set of Roslyn analyzers with a simple WPF UI that analyzes y
 ### Build everything
 
 ```
+dotnet restore
 dotnet build
 ```
 
