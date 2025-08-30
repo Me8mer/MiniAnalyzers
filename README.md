@@ -1,6 +1,7 @@
 # Mini .NET Analyzers
 
-Small but practical set of Roslyn analyzers with a simple WPF UI that analyzes your C# solution or project and presents findings in a clear grid.
+Small but practical set of Roslyn analyzers with a simple WPF UI that analyzes your C# solution or project and presents findings in a clear grid.  
+[Showcase YouTube video](https://youtu.be/2d7vXadgXR8)
 
 ## What this project does
 
