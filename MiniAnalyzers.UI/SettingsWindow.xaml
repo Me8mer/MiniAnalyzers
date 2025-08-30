@@ -68,17 +68,27 @@
             <ListView x:Name="lstRules" Margin="6" Background="{DynamicResource Brush.Panel}">
                 <ListView.View>
                     <GridView>
-                        <GridViewColumn Header="ID" Width="90" DisplayMemberBinding="{Binding Id}" />
+                        <GridViewColumn Header="Id">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding id}" 
+                                       Foreground="White" 
+                                       FontWeight="Bold"/>      
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
                         <GridViewColumn Header="Title" Width="240" DisplayMemberBinding="{Binding Title}" />
                         <GridViewColumn Header="Actions" Width="Auto">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
-                                    <StackPanel Orientation="Horizontal">
+                                    <StackPanel Orientation="Horizontal" >
                                         <Button Content="Include" Margin="0,0,6,0"
-                                                Click="AddInclude_Click" Tag="{Binding Id}"
+                                                CommandParameter="{Binding id}"
+                                                Click="AddInclude_Click" 
                                                 Style="{StaticResource ToolbarButton}"/>
                                         <Button Content="Exclude"  Margin="0,0,6,0"
-                                                Click="AddExclude_Click" Tag="{Binding Id}"
+                                                CommandParameter="{Binding id}"
+                                                Click="AddExclude_Click"
                                                 Style="{StaticResource ToolbarButton}"/>
                                     </StackPanel>
                                 </DataTemplate>

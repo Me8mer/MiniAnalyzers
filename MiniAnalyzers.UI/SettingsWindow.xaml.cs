@@ -22,13 +22,15 @@ public partial class SettingsWindow : Window
     private void AddInclude_Click(object sender, RoutedEventArgs e)
     {
         if (DataContext is not FilterSettings setting) return;
-        if (sender is Button button && button.Tag is string id) setting.IncludeIdsCsv = AppendCsvUnique(setting.IncludeIdsCsv, id);
+        if (sender is Button button && button.CommandParameter is string id)
+            setting.IncludeIdsCsv = AppendCsvUnique(setting.IncludeIdsCsv, id);
     }
 
     private void AddExclude_Click(object sender, RoutedEventArgs e)
     {
         if (DataContext is not FilterSettings setting) return;
-        if (sender is Button button && button.Tag is string id) setting.ExcludeIdsCsv = AppendCsvUnique(setting.ExcludeIdsCsv, id);
+        if (sender is Button button && button.CommandParameter is string id)
+            setting.ExcludeIdsCsv = AppendCsvUnique(setting.ExcludeIdsCsv, id);
     }
 
     private static string AppendCsvUnique(string csv, string id)
