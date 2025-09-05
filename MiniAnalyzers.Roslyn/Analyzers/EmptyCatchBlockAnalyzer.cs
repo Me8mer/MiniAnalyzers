@@ -5,7 +5,6 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using MiniAnalyzers.Roslyn.Infrastructure.Common;
 
-
 namespace MiniAnalyzers.Roslyn.Analyzers;
 
 /// <summary>

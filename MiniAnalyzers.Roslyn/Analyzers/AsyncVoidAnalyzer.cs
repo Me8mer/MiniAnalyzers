@@ -242,9 +242,6 @@ public sealed class AsyncVoidAnalyzer : DiagnosticAnalyzer
         context.ReportDiagnostic(Diagnostic.Create(Rule, anon.Syntax.GetLocation(), properties: RecommendationProps, name));
     }
 
-
-
-
     private static bool LooksLikeEventHandler(IMethodSymbol method, INamedTypeSymbol? eventArgsSymbol)
     {
         if (method.Parameters.Length != 2)

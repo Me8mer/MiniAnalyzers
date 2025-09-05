@@ -144,8 +144,6 @@ public partial class MainWindow : Window
         }
     }
 
-
-
     private void SetUiBusy(bool busy)
     {
         btnAnalyze.IsEnabled = !busy;
@@ -172,6 +170,7 @@ public partial class MainWindow : Window
 
         return true;
     }
+
 
     private bool IsSeverityAllowed(string severity)
     {
